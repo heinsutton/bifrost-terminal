@@ -11,7 +11,7 @@ import { splitAtom } from "jotai/utils";
 import { createRef, CSSProperties } from "react";
 import { debounce } from "throttle-debounce";
 import { getLayoutStateAtomFromTab } from "./layoutAtom";
-import { balanceNode, findNode, newLayoutNode, walkNodes } from "./layoutNode";
+import { balanceNode, findNode, findParent, newLayoutNode, walkNodes } from "./layoutNode";
 import {
     clearTree,
     computeMoveNode,
@@ -1475,6 +1475,78 @@ export class LayoutModel {
 
         this.treeReducer(setPendingAction);
         this.updateTree(false);
+    }
+
+    /**
+     * Finds the nearest split boundary along the given axis on one side of a node, walking up the tree
+     * so a node nested inside a column can still reach the boundary of its enclosing row.
+     * @returns The split parent and the index of the child just before the boundary, or undefined if the node has no boundary on that side.
+     */
+    private findBoundaryOnSide(
+        nodeId: string,
+        axisFlex: FlexDirection,
+        towardEnd: boolean
+    ): { parent: LayoutNode; beforeIdx: number } {
+        let childId = nodeId;
+        let parent = findParent(this.treeState.rootNode, childId);
+        while (parent) {
+            if (parent.flexDirection === axisFlex) {
+                const childIdx = parent.children.findIndex((c) => c.id === childId);
+                const neighborIdx = towardEnd ? childIdx + 1 : childIdx - 1;
+                if (neighborIdx >= 0 && neighborIdx < parent.children.length) {
+                    return { parent, beforeIdx: Math.min(childIdx, neighborIdx) };
+                }
+            }
+            childId = parent.id;
+            parent = findParent(this.treeState.rootNode, childId);
+        }
+        return undefined;
+    }
+
+    /**
+     * Moves a border of a node in the given direction, like tmux resize-pane. The border on the side the
+     * arrow points to is pushed outward (node grows); if the node has no border on that side, the border on
+     * the opposite side is pulled in the same direction (node shrinks).
+     * @param nodeId The node whose border should move.
+     * @param direction The direction to move the border.
+     * @param stepPx How far to move the border, in CSS pixels.
+     * @returns True if the layout changed, false if the border cannot move any further.
+     */
+    moveNodeBorderInDirection(nodeId: string, direction: NavigateDirection, stepPx: number): boolean {
+        if (this.magnifiedNodeId != null) {
+            return false;
+        }
+        const isHorizontal = direction === NavigateDirection.Left || direction === NavigateDirection.Right;
+        const towardEnd = direction === NavigateDirection.Right || direction === NavigateDirection.Down;
+        const axisFlex = isHorizontal ? FlexDirection.Row : FlexDirection.Column;
+        const boundary =
+            this.findBoundaryOnSide(nodeId, axisFlex, towardEnd) ??
+            this.findBoundaryOnSide(nodeId, axisFlex, !towardEnd);
+        if (boundary == null) {
+            return false;
+        }
+        const pixelToSizeRatio = this.getter(this.additionalProps)[boundary.parent.id]?.pixelToSizeRatio;
+        if (!pixelToSizeRatio) {
+            return false;
+        }
+        const beforeNode = boundary.parent.children[boundary.beforeIdx];
+        const afterNode = boundary.parent.children[boundary.beforeIdx + 1];
+        const growNode = towardEnd ? beforeNode : afterNode;
+        const shrinkNode = towardEnd ? afterNode : beforeNode;
+        const minNodeSize = MinNodeSizePx * pixelToSizeRatio;
+        const delta = Math.min(stepPx * pixelToSizeRatio, shrinkNode.size - minNodeSize, 100 - growNode.size);
+        if (delta <= 0) {
+            return false;
+        }
+        const resizeAction: LayoutTreeResizeNodeAction = {
+            type: LayoutTreeActionType.ResizeNode,
+            resizeOperations: [
+                { nodeId: growNode.id, size: growNode.size + delta },
+                { nodeId: shrinkNode.id, size: shrinkNode.size - delta },
+            ],
+        };
+        this.treeReducer(resizeAction);
+        return true;
     }
 
     /**

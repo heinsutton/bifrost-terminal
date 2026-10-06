@@ -21,6 +21,9 @@ import {
     WOS,
 } from "@/app/store/global";
 import { getActiveTabModel } from "@/app/store/tab-model";
+import { RpcApi } from "@/app/store/wshclientapi";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
+import type { TermViewModel } from "@/app/view/term/term-model";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { deleteLayoutModelForTab, getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
 import * as keyutil from "@/util/keyutil";
@@ -69,6 +72,64 @@ function getFocusedBlockInStaticTab(): string {
     const layoutModel = getLayoutModelForStaticTab();
     const focusedNode = globalStore.get(layoutModel.focusedNode);
     return focusedNode.data?.blockId;
+}
+
+const SaveKeyViewTypes = new Set(["preview", "waveconfig"]);
+const BlockResizeStepPx = 50;
+const TermZoomMinFontSize = 4;
+const TermZoomMaxFontSize = 64;
+
+function getFocusedTermViewModel(): TermViewModel {
+    if (!isTabWindow()) {
+        return null;
+    }
+    if (globalStore.get(FocusManager.getInstance().focusType) !== "node") {
+        return null;
+    }
+    const layoutModel = getLayoutModelForStaticTab();
+    const blockId = globalStore.get(layoutModel?.focusedNode)?.data?.blockId;
+    if (blockId == null) {
+        return null;
+    }
+    const viewModel = getBlockComponentModel(blockId)?.viewModel;
+    if (viewModel?.viewType !== "term") {
+        return null;
+    }
+    return viewModel as TermViewModel;
+}
+
+function moveFocusedBlockBorderInDirection(direction: NavigateDirection) {
+    if (!isTabWindow()) {
+        return;
+    }
+    const layoutModel = getLayoutModelForStaticTab();
+    const focusedNodeId = globalStore.get(layoutModel?.focusedNode)?.id;
+    if (focusedNodeId == null) {
+        return;
+    }
+    layoutModel.moveNodeBorderInDirection(focusedNodeId, direction, BlockResizeStepPx);
+}
+
+// zoom accelerators are routed here from the electron menu so that a focused terminal
+// gets a per-block font size change instead of zooming the whole window
+function handleZoomRequest(action: ZoomAction) {
+    const termModel = getFocusedTermViewModel();
+    if (termModel == null) {
+        getApi().appZoom(action);
+        return;
+    }
+    let newFontSize: number = null;
+    if (action !== "reset") {
+        const curFontSize = globalStore.get(termModel.fontSizeAtom);
+        const delta = action === "in" ? 1 : -1;
+        newFontSize = Math.min(TermZoomMaxFontSize, Math.max(TermZoomMinFontSize, curFontSize + delta));
+    }
+    fireAndForget(() =>
+        RpcApi.SetMetaCommand(TabRpcClient, {
+            oref: WOS.makeORef("block", termModel.blockId),
+            meta: { "term:fontsize": newFontSize },
+        })
+    );
 }
 
 function getSimpleControlShiftAtom() {
@@ -623,6 +684,18 @@ function registerGlobalKeys() {
         switchBlockInDirection(NavigateDirection.Right);
         return true;
     });
+    const resizeKeys: [string, NavigateDirection][] = [
+        ["Ctrl:Alt:ArrowUp", NavigateDirection.Up],
+        ["Ctrl:Alt:ArrowDown", NavigateDirection.Down],
+        ["Ctrl:Alt:ArrowLeft", NavigateDirection.Left],
+        ["Ctrl:Alt:ArrowRight", NavigateDirection.Right],
+    ];
+    for (const [keyDesc, direction] of resizeKeys) {
+        globalKeyMap.set(keyDesc, () => {
+            moveFocusedBlockBorderInDirection(direction);
+            return true;
+        });
+    }
     globalKeyMap.set("Ctrl:Shift:x", () => {
         const blockId = getFocusedBlockId();
         if (blockId == null) {
@@ -740,6 +813,19 @@ function registerGlobalKeys() {
         }
         return false;
     });
+    globalKeyMap.set("Alt:s", () => {
+        if (!isTabWindow()) {
+            return false;
+        }
+        // on windows/linux "Cmd" maps to Alt, so Alt:s is also the save key for editor views
+        const focusedBlockId = globalStore.get(getLayoutModelForStaticTab()?.focusedNode)?.data?.blockId;
+        const focusedView = focusedBlockId ? getBlockComponentModel(focusedBlockId)?.viewModel?.viewType : null;
+        if (globalStore.get(FocusManager.getInstance().focusType) === "node" && SaveKeyViewTypes.has(focusedView)) {
+            return false;
+        }
+        WorkspaceLayoutModel.getInstance().toggleWidgetsSidebar();
+        return true;
+    });
     globalKeyMap.set("Cmd:Shift:a", () => {
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
         WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
@@ -789,6 +875,7 @@ export {
     disableGlobalKeybindings,
     enableGlobalKeybindings,
     getSimpleControlShiftAtom,
+    handleZoomRequest,
     globalRefocus,
     globalRefocusWithTimeout,
     registerBuilderGlobalKeys,

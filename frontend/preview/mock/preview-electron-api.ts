@@ -25,6 +25,8 @@ const previewElectronApi: ElectronApi = {
     openExternal: (_url: string) => {},
     onFullScreenChange: (_callback: (isFullScreen: boolean) => void) => {},
     onZoomFactorChange: (_callback: (zoomFactor: number) => void) => {},
+    onZoomRequest: (_callback: (action: ZoomAction) => void) => {},
+    appZoom: (_action: ZoomAction) => {},
     onUpdaterStatusChange: (_callback: (status: UpdaterStatus) => void) => {},
     getUpdaterStatus: () => "up-to-date",
     getUpdaterChannel: () => "",

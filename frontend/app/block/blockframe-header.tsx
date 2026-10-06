@@ -31,6 +31,68 @@ import * as React from "react";
 import { BlockEnv } from "./blockenv";
 import { BlockFrameProps } from "./blocktypes";
 
+const RenamingBlockIdAtom = jotai.atom(null) as jotai.PrimitiveAtom<string>;
+
+function saveBlockTitle(blockEnv: BlockEnv, blockId: string, title: string) {
+    const trimmed = title?.trim();
+    blockEnv.rpc.SetMetaCommand(TabRpcClient, {
+        oref: WOS.makeORef("block", blockId),
+        meta: { "frame:title": util.isBlank(trimmed) ? null : trimmed },
+    });
+}
+
+type BlockTitleEditorProps = {
+    blockId: string;
+    initialTitle: string;
+    className?: string;
+};
+
+const BlockTitleEditor = ({ blockId, initialTitle, className }: BlockTitleEditorProps) => {
+    const blockEnv = useWaveEnv<BlockEnv>();
+    const [value, setValue] = React.useState(initialTitle ?? "");
+    const doneRef = React.useRef(false);
+
+    const finish = (save: boolean) => {
+        if (doneRef.current) {
+            return;
+        }
+        doneRef.current = true;
+        if (save) {
+            saveBlockTitle(blockEnv, blockId, value);
+        }
+        globalStore.set(RenamingBlockIdAtom, null);
+        setTimeout(() => refocusNode(blockId), 10);
+    };
+
+    return (
+        <input
+            autoFocus
+            className={cn(
+                "min-w-[80px] max-w-[300px] rounded border border-accent/60 bg-transparent px-1 text-[12px] font-semibold text-primary outline-none",
+                className
+            )}
+            value={value}
+            placeholder="Block name"
+            spellCheck={false}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setValue(e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    finish(true);
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    finish(false);
+                }
+            }}
+            onBlur={() => finish(true)}
+        />
+    );
+};
+
 function handleHeaderContextMenu(
     e: React.MouseEvent<HTMLDivElement>,
     blockId: string,
@@ -41,6 +103,7 @@ function handleHeaderContextMenu(
     e.preventDefault();
     e.stopPropagation();
     const magnified = globalStore.get(nodeModel.isMagnified);
+    const currentTitle = globalStore.get(blockEnv.getBlockMetaKeyAtom(blockId, "frame:title"));
     const menu: ContextMenuItem[] = [
         {
             label: magnified ? "Un-Magnify Block" : "Magnify Block",
@@ -50,12 +113,27 @@ function handleHeaderContextMenu(
         },
         { type: "separator" },
         {
+            label: "Rename Block",
+            click: () => {
+                globalStore.set(RenamingBlockIdAtom, blockId);
+            },
+        },
+    ];
+    if (!util.isBlank(currentTitle)) {
+        menu.push({
+            label: "Clear Block Name",
+            click: () => saveBlockTitle(blockEnv, blockId, null),
+        });
+    }
+    menu.push(
+        { type: "separator" },
+        {
             label: "Copy BlockId",
             click: () => {
                 navigator.clipboard.writeText(blockId);
             },
-        },
-    ];
+        }
+    );
     const extraItems = viewModel?.getSettingsMenuItems?.();
     if (extraItems && extraItems.length > 0) menu.push({ type: "separator" }, ...extraItems);
     menu.push(
@@ -232,9 +310,20 @@ const BlockFrame_Header = ({
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
     const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const dragHandleRef = preview ? null : nodeModel.dragHandleRef;
+    const renamingBlockId = jotai.useAtomValue(RenamingBlockIdAtom);
+    const isRenaming = !preview && renamingBlockId === nodeModel.blockId;
     const isTerminalBlock = metaView === "term";
+    const hasCustomTitle = !util.isBlank(metaFrameTitle);
     viewName = metaFrameTitle ?? viewName;
     viewIconUnion = metaFrameIcon ?? viewIconUnion;
+
+    const startRename = (e: React.MouseEvent) => {
+        if (preview) {
+            return;
+        }
+        e.stopPropagation();
+        globalStore.set(RenamingBlockIdAtom, nodeModel.blockId);
+    };
 
     React.useEffect(() => {
         if (magnified && !preview && !prevMagifiedState.current) {
@@ -258,7 +347,20 @@ const BlockFrame_Header = ({
                     {preIconButton && <IconButton decl={preIconButton} className="block-frame-preicon-button" />}
                     <div className="block-frame-default-header-iconview">
                         {viewIconElem}
-                        {viewName && !hideViewName && <div className="block-frame-view-type">{viewName}</div>}
+                        {isRenaming ? (
+                            <BlockTitleEditor blockId={nodeModel.blockId} initialTitle={metaFrameTitle} />
+                        ) : (
+                            viewName &&
+                            (!hideViewName || hasCustomTitle) && (
+                                <div
+                                    className="block-frame-view-type"
+                                    onDoubleClick={startRename}
+                                    title="Double-click to rename"
+                                >
+                                    {viewName}
+                                </div>
+                            )
+                        )}
                     </div>
                 </>
             )}
@@ -283,6 +385,18 @@ const BlockFrame_Header = ({
             {useTermHeader && badge && (
                 <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#fbbf24" }}>
                     <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
+                </div>
+            )}
+            {useTermHeader && isRenaming && (
+                <BlockTitleEditor blockId={nodeModel.blockId} initialTitle={metaFrameTitle} className="ml-1" />
+            )}
+            {useTermHeader && !isRenaming && hasCustomTitle && (
+                <div
+                    className="ml-1 min-w-0 shrink truncate text-[12px] font-semibold text-primary"
+                    onDoubleClick={startRename}
+                    title="Double-click to rename"
+                >
+                    {metaFrameTitle}
                 </div>
             )}
             <HeaderTextElems viewModel={viewModel} blockId={nodeModel.blockId} preview={preview} error={error} />

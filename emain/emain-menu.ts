@@ -9,7 +9,6 @@ import { focusedBuilderWindow, getBuilderWindowById } from "./emain-builder";
 import { openBuilderWindow } from "./emain-ipc";
 import { isDev, unamePlatform } from "./emain-platform";
 import { clearTabCache } from "./emain-tabview";
-import { decreaseZoomLevel, increaseZoomLevel, resetZoomLevel } from "./emain-util";
 import {
     createNewWaveWindow,
     createWorkspace,
@@ -238,7 +237,7 @@ function makeViewMenu(
             click: (_, window) => {
                 const wc = getWindowWebContents(window) ?? webContents;
                 if (wc) {
-                    resetZoomLevel(wc);
+                    wc.send("zoom-request", "reset");
                 }
             },
         },
@@ -248,7 +247,7 @@ function makeViewMenu(
             click: (_, window) => {
                 const wc = getWindowWebContents(window) ?? webContents;
                 if (wc) {
-                    increaseZoomLevel(wc);
+                    wc.send("zoom-request", "in");
                 }
             },
         },
@@ -258,7 +257,7 @@ function makeViewMenu(
             click: (_, window) => {
                 const wc = getWindowWebContents(window) ?? webContents;
                 if (wc) {
-                    increaseZoomLevel(wc);
+                    wc.send("zoom-request", "in");
                 }
             },
             visible: false,
@@ -270,7 +269,7 @@ function makeViewMenu(
             click: (_, window) => {
                 const wc = getWindowWebContents(window) ?? webContents;
                 if (wc) {
-                    decreaseZoomLevel(wc);
+                    wc.send("zoom-request", "out");
                 }
             },
         },
@@ -280,7 +279,7 @@ function makeViewMenu(
             click: (_, window) => {
                 const wc = getWindowWebContents(window) ?? webContents;
                 if (wc) {
-                    decreaseZoomLevel(wc);
+                    wc.send("zoom-request", "out");
                 }
             },
             visible: false,

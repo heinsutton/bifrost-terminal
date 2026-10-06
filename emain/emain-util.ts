@@ -44,6 +44,16 @@ export function resetZoomLevel(webContents: electron.WebContents): void {
     broadcastZoomFactorChanged(1);
 }
 
+export function applyZoomAction(webContents: electron.WebContents, action: ZoomAction): void {
+    if (action === "in") {
+        increaseZoomLevel(webContents);
+    } else if (action === "out") {
+        decreaseZoomLevel(webContents);
+    } else if (action === "reset") {
+        resetZoomLevel(webContents);
+    }
+}
+
 export function getElectronExecPath(): string {
     return process.execPath;
 }

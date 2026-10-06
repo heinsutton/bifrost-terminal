@@ -7,6 +7,7 @@ import { loadBadges } from "@/app/store/badge";
 import { GlobalModel } from "@/app/store/global-model";
 import {
     globalRefocus,
+    handleZoomRequest,
     registerBuilderGlobalKeys,
     registerControlShiftStateUpdateHandler,
     registerElectronReinjectKeyHandler,
@@ -69,6 +70,7 @@ async function initBare() {
     getApi().onZoomFactorChange((zoomFactor) => {
         updateZoomFactor(zoomFactor);
     });
+    getApi().onZoomRequest(handleZoomRequest);
     document.fonts.ready.then(() => {
         console.log("Init Bare Done");
         getApi().setWindowInitStatus("ready");

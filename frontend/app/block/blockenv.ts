@@ -32,6 +32,7 @@ export type BlockEnv = WaveEnvSubset<{
         ConnConnectCommand: WaveEnv["rpc"]["ConnConnectCommand"];
         SetConnectionsConfigCommand: WaveEnv["rpc"]["SetConnectionsConfigCommand"];
         DismissWshFailCommand: WaveEnv["rpc"]["DismissWshFailCommand"];
+        SetMetaCommand: WaveEnv["rpc"]["SetMetaCommand"];
     };
     wos: WaveEnv["wos"];
     getConnStatusAtom: WaveEnv["getConnStatusAtom"];

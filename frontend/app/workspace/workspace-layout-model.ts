@@ -78,6 +78,11 @@ class WorkspaceLayoutModel {
                 true
         );
         this.initializeFromMeta();
+        globalStore.sub(getSettingsKeyAtom("app:hideaibutton"), () => {
+            if (this.isAIHidden() && this.aiPanelVisible) {
+                this.setAIPanelVisible(false);
+            }
+        });
 
         this.handleWindowResize = this.handleWindowResize.bind(this);
         this.handleOuterPanelLayout = this.handleOuterPanelLayout.bind(this);
@@ -147,8 +152,9 @@ class WorkspaceLayoutModel {
             const savedAIWidth = globalStore.get(this.getPanelWidthAtom());
             const savedVTabWidth = globalStore.get(this.getVTabBarWidthAtom());
             if (savedVisible != null) {
-                this.aiPanelVisible = savedVisible;
-                globalStore.set(this.panelVisibleAtom, savedVisible);
+                const visible = savedVisible && !this.isAIHidden();
+                this.aiPanelVisible = visible;
+                globalStore.set(this.panelVisibleAtom, visible);
             }
             if (savedAIWidth != null) {
                 this.aiPanelWidth = savedAIWidth;
@@ -354,6 +360,18 @@ class WorkspaceLayoutModel {
         return this.aiPanelVisible;
     }
 
+    toggleWidgetsSidebar(): void {
+        const visible = globalStore.get(this.widgetsSidebarVisibleAtom);
+        RpcApi.SetMetaCommand(TabRpcClient, {
+            oref: WOS.makeORef("workspace", this.getWorkspaceId()),
+            meta: { "layout:widgetsvisible": !visible },
+        });
+    }
+
+    isAIHidden(): boolean {
+        return globalStore.get(getSettingsKeyAtom("app:hideaibutton")) === true;
+    }
+
     getAIPanelWidth(): number {
         return this.getResolvedAIWidth(window.innerWidth);
     }
@@ -386,6 +404,9 @@ class WorkspaceLayoutModel {
     // ---- Toggle visibility ----
 
     setAIPanelVisible(visible: boolean, opts?: { nofocus?: boolean }): void {
+        if (visible && this.isAIHidden()) {
+            return;
+        }
         if (this.focusTimeoutRef != null) {
             clearTimeout(this.focusTimeoutRef);
             this.focusTimeoutRef = null;

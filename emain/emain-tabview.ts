@@ -11,11 +11,8 @@ import { configureAuthKeyRequestInjection } from "./authkey";
 import { setWasActive } from "./emain-activity";
 import { getElectronAppBasePath, isDevVite, unamePlatform } from "./emain-platform";
 import {
-    decreaseZoomLevel,
     handleCtrlShiftFocus,
     handleCtrlShiftState,
-    increaseZoomLevel,
-    resetZoomLevel,
     shFrameNavHandler,
     shNavHandler,
 } from "./emain-util";
@@ -49,17 +46,17 @@ function handleWindowsMenuAccelerators(
     }
 
     if (checkKeyPressed(waveEvent, "Ctrl:0")) {
-        resetZoomLevel(tabView.webContents);
+        tabView.webContents.send("zoom-request", "reset");
         return true;
     }
 
     if (checkKeyPressed(waveEvent, "Ctrl:=") || checkKeyPressed(waveEvent, "Ctrl:Shift:=")) {
-        increaseZoomLevel(tabView.webContents);
+        tabView.webContents.send("zoom-request", "in");
         return true;
     }
 
     if (checkKeyPressed(waveEvent, "Ctrl:-") || checkKeyPressed(waveEvent, "Ctrl:Shift:-")) {
-        decreaseZoomLevel(tabView.webContents);
+        tabView.webContents.send("zoom-request", "out");
         return true;
     }
 
