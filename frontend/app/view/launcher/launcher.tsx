@@ -168,11 +168,12 @@ function LauncherView({ blockId, model }: ViewComponentProps<LauncherViewModel>)
     const LABEL_THRESHOLD = 60;
     const MARGIN_BOTTOM = 24;
     const MAX_TILE_SIZE = 120;
+    const LOGO_ASPECT_RATIO = 306 / 1082;
 
     const calculatedLogoWidth = containerSize.width * 0.3;
     const logoWidth = containerSize.width >= 100 ? Math.min(Math.max(calculatedLogoWidth, 100), 300) : 0;
     const showLogo = logoWidth >= 100;
-    const availableHeight = containerSize.height - (showLogo ? logoWidth + MARGIN_BOTTOM : 0);
+    const availableHeight = containerSize.height - (showLogo ? logoWidth * LOGO_ASPECT_RATIO + MARGIN_BOTTOM : 0);
 
     // Determine optimal grid layout
     const gridLayout: GridLayoutType = React.useMemo(() => {
@@ -225,7 +226,7 @@ function LauncherView({ blockId, model }: ViewComponentProps<LauncherViewModel>)
             {/* Logo */}
             {showLogo && (
                 <div className="mb-6" style={{ width: logoWidth, maxWidth: 300 }}>
-                    <img src={logoUrl} className="w-full h-auto filter grayscale brightness-70 opacity-70" alt="Logo" />
+                    <img src={logoUrl} className="w-full h-auto" alt="Logo" />
                 </div>
             )}
 
