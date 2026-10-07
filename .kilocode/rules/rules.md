@@ -207,7 +207,8 @@ If there are no Go errors in VSCode you can assume the code compiles fine.
 
 Semver `MAJOR.MINOR.PATCH`. The version lives in `package.json` (`version`) and the root entries of `package-lock.json` (lines 3 and 9); `version.cjs` reads it and feeds the Go ldflags and electron-builder.
 
-- Every release (a packaged build/install the user deploys) bumps PATCH: 1.0.3 -> 1.0.4.
-- A release with a major new feature bumps MINOR and resets PATCH: 1.0.x -> 1.1.0.
+- Every release (a packaged build/install the user deploys) bumps PATCH: 0.15.3 -> 0.15.4.
+- A release with a major new feature bumps MINOR and resets PATCH: 0.15.x -> 0.16.0.
 - MAJOR changes only when the user says so.
 - Bump before building the release, in one commit: run `npm version <patch|minor|major> --no-git-tag-version` (updates `package.json` and `package-lock.json` together; `node version.cjs <patch|minor|major>` only updates `package.json`), then commit both files.
+- After a bump the dev backend must be rebuilt, because the version is stamped into wavesrv via ldflags. The Taskfile backend build tasks list `package.json` in `sources:`, so this happens automatically.

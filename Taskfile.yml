@@ -228,6 +228,7 @@ tasks:
             - "pkg/**/*.json"
             - "pkg/**/*.sh"
             - "tsunami/**/*.go"
+            - package.json
         generates:
             - dist/bin/wavesrv.*
 
@@ -247,6 +248,7 @@ tasks:
             - "pkg/**/*.json"
             - "pkg/**/*.sh"
             - "tsunami/**/*.go"
+            - package.json
         generates:
             - dist/bin/wavesrv.x64.exe
 
@@ -265,6 +267,7 @@ tasks:
             - "pkg/**/*.json"
             - "pkg/**/*.sh"
             - "tsunami/**/*.go"
+            - package.json
         generates:
             - dist/bin/wavesrv.x64
 
