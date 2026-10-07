@@ -10,8 +10,9 @@ import {
     ExpandableMenuItemLeftElement,
     ExpandableMenuItemRightElement,
 } from "@/element/expandablemenu";
+import { WorkspaceIcon } from "@/app/element/runes";
 import { Popover, PopoverButton, PopoverContent } from "@/element/popover";
-import { fireAndForget, makeIconClass, useAtomValueSafe } from "@/util/util";
+import { fireAndForget, useAtomValueSafe } from "@/util/util";
 import clsx from "clsx";
 import { atom, PrimitiveAtom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { splitAtom } from "jotai/utils";
@@ -93,7 +94,7 @@ const WorkspaceSwitcher = forwardRef<HTMLDivElement>((_, ref) => {
     const isActiveWorkspaceSaved = !!(activeWorkspace.name && activeWorkspace.icon);
 
     const workspaceIcon = isActiveWorkspaceSaved ? (
-        <i className={makeIconClass(activeWorkspace.icon, false)} style={{ color: activeWorkspace.color }}></i>
+        <WorkspaceIcon icon={activeWorkspace.icon} color={activeWorkspace.color} />
     ) : (
         <WorkspaceSVG />
     );
@@ -231,10 +232,7 @@ const WorkspaceSwitcherItem = ({
                     }
                 >
                     <ExpandableMenuItemLeftElement>
-                        <i
-                            className={clsx("left-icon", makeIconClass(workspace.icon, true))}
-                            style={{ color: workspace.color }}
-                        />
+                        <WorkspaceIcon icon={workspace.icon} fw color={workspace.color} className="left-icon" />
                     </ExpandableMenuItemLeftElement>
                     <div className="label">{workspace.name}</div>
                     <ExpandableMenuItemRightElement>

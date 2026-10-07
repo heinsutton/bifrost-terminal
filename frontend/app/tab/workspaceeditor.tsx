@@ -1,4 +1,5 @@
-import { fireAndForget, makeIconClass } from "@/util/util";
+import { WorkspaceIcon, resolveWorkspaceIcon } from "@/app/element/runes";
+import { fireAndForget } from "@/util/util";
 import clsx from "clsx";
 import { memo, useEffect, useRef, useState } from "react";
 import { Button } from "../element/button";
@@ -47,11 +48,14 @@ const IconSelector = memo(({ icons, selectedIcon, onSelect, className }: IconSel
     return (
         <div className={clsx("icon-selector", className)}>
             {icons.map((icon) => {
-                const iconClass = makeIconClass(icon, true);
                 return (
-                    <i
+                    <WorkspaceIcon
                         key={icon}
-                        className={clsx(iconClass, "icon-item", { selected: selectedIcon === icon })}
+                        icon={icon}
+                        fw
+                        className={clsx("icon-item", {
+                            selected: resolveWorkspaceIcon(selectedIcon) === resolveWorkspaceIcon(icon),
+                        })}
                         onClick={() => handleIconClick(icon)}
                     />
                 );

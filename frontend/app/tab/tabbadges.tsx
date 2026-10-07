@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { AlgizRune } from "@/app/element/runes";
 import { sortBadgesForTab } from "@/app/store/badge";
 import { cn, makeIconClass } from "@/util/util";
 import { useMemo } from "react";
@@ -13,25 +14,6 @@ export interface TabBadgesProps {
 }
 
 const SigilIconKey = "sigil";
-
-function AlgizRune({ color }: { color: string }) {
-    return (
-        <svg
-            viewBox="0 0 12 12"
-            width="12"
-            height="12"
-            fill="none"
-            stroke={color}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="shrink-0"
-            aria-hidden="true"
-        >
-            <path d="M6 11V1M6 5L2 1.5M6 5L10 1.5" />
-        </svg>
-    );
-}
 
 const DefaultClassName =
     "pointer-events-none absolute left-[4px] top-1/2 z-[3] flex h-[20px] w-[20px] -translate-y-1/2 items-center justify-center px-[2px] py-[1px]";
