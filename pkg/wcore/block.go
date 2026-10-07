@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package wcore
@@ -191,6 +191,10 @@ func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*Mov
 				return nil, fmt.Errorf("error creating destination tab: %w", err)
 			}
 			destTabId = destTab.OID
+			err = assignNewTabToSourceWindowTx(txCtx, sourceWorkspaceId, sourceTabId, destTabId)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			destWorkspaceId, err := wstore.DBFindWorkspaceForTabId(txCtx, destTabId)
 			if err != nil {
@@ -239,6 +243,24 @@ func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*Mov
 		}
 	}
 	return rtn, nil
+}
+
+// keeps a tab created for a block move in the same (popped-out) window as the source tab
+func assignNewTabToSourceWindowTx(ctx context.Context, workspaceId string, sourceTabId string, newTabId string) error {
+	ws, err := wstore.DBMustGet[*waveobj.Workspace](ctx, workspaceId)
+	if err != nil {
+		return fmt.Errorf("error getting workspace: %w", err)
+	}
+	popOutWindowId := ws.PopOutTabs[sourceTabId]
+	if popOutWindowId == "" {
+		return nil
+	}
+	ws.PopOutTabs[newTabId] = popOutWindowId
+	err = wstore.DBUpdate(ctx, ws)
+	if err != nil {
+		return fmt.Errorf("error updating workspace: %w", err)
+	}
+	return nil
 }
 
 // Must delete all blocks individually first.

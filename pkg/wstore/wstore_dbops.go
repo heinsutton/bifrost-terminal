@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package wstore
@@ -409,11 +409,14 @@ func DBFindWorkspaceForTabId(ctx context.Context, tabId string) (string, error) 
 	})
 }
 
+// returns the workspace's main window; popped-out windows are never returned
 func DBFindWindowForWorkspaceId(ctx context.Context, workspaceId string) (string, error) {
 	return WithTxRtn(ctx, func(tx *TxWrap) (string, error) {
 		query := `
 			SELECT w.oid
-			FROM db_window w WHERE json_extract(data, '$.workspaceid') = ?`
+			FROM db_window w
+			WHERE json_extract(data, '$.workspaceid') = ?
+			AND COALESCE(json_extract(data, '$.ispopout'), 0) = 0`
 		return tx.GetString(query, workspaceId), nil
 	})
 }

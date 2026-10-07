@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package waveobj
@@ -153,6 +153,8 @@ type Window struct {
 	WinSize     WinSize     `json:"winsize"`
 	LastFocusTs int64       `json:"lastfocusts"`
 	Meta        MetaMapType `json:"meta"`
+	IsPopOut    bool        `json:"ispopout,omitempty"`    // a popped-out window showing some tabs of its main window's workspace
+	ActiveTabId string      `json:"activetabid,omitempty"` // only used by popped-out windows; the main window uses Workspace.ActiveTabId
 }
 
 func (*Window) GetOType() string {
@@ -169,17 +171,19 @@ type WorkspaceList []*WorkspaceListEntry
 type ActiveTabUpdate struct {
 	WorkspaceId    string `json:"workspaceid"`
 	NewActiveTabId string `json:"newactivetabid"`
+	WindowId       string `json:"windowid,omitempty"`
 }
 
 type Workspace struct {
-	OID         string      `json:"oid"`
-	Version     int         `json:"version"`
-	Name        string      `json:"name,omitempty"`
-	Icon        string      `json:"icon,omitempty"`
-	Color       string      `json:"color,omitempty"`
-	TabIds      []string    `json:"tabids"`
-	ActiveTabId string      `json:"activetabid"`
-	Meta        MetaMapType `json:"meta"`
+	OID         string            `json:"oid"`
+	Version     int               `json:"version"`
+	Name        string            `json:"name,omitempty"`
+	Icon        string            `json:"icon,omitempty"`
+	Color       string            `json:"color,omitempty"`
+	TabIds      []string          `json:"tabids"`
+	ActiveTabId string            `json:"activetabid"`
+	Meta        MetaMapType       `json:"meta"`
+	PopOutTabs  map[string]string `json:"popouttabs,omitempty"` // tabid -> popped-out windowid; tabs not in the map belong to the main window
 }
 
 func (*Workspace) GetOType() string {

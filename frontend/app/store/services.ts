@@ -142,11 +142,35 @@ export class WindowServiceType {
     CloseWindow(windowId: string, fromElectron: boolean): Promise<void> {
         return callBackendService(this?.waveEnv, "window", "CloseWindow", Array.from(arguments))
     }
+
+    // create a new tab shown in the given window and make it that window's active tab
+    // @returns tabId (and object updates)
+    CreateTabInWindow(windowId: string): Promise<string> {
+        return callBackendService(this?.waveEnv, "window", "CreateTabInWindow", Array.from(arguments))
+    }
     CreateWindow(winSize: WinSize, workspaceId: string): Promise<WaveWindow> {
         return callBackendService(this?.waveEnv, "window", "CreateWindow", Array.from(arguments))
     }
     GetWindow(windowId: string): Promise<WaveWindow> {
         return callBackendService(this?.waveEnv, "window", "GetWindow", Array.from(arguments))
+    }
+
+    // move a tab to another window of the same workspace (index -1 appends)
+    // @returns TabWindowMoveRtn (and object updates)
+    MoveTabToWindow(tabId: string, destWindowId: string, index: number): Promise<TabWindowMoveRtn> {
+        return callBackendService(this?.waveEnv, "window", "MoveTabToWindow", Array.from(arguments))
+    }
+
+    // move a block into a new tab in a new popped-out window of the same workspace
+    // @returns PopOutRtn (and object updates)
+    PopOutBlock(blockId: string, pos: Point, size: WinSize): Promise<PopOutRtn> {
+        return callBackendService(this?.waveEnv, "window", "PopOutBlock", Array.from(arguments))
+    }
+
+    // move a tab into a new popped-out window of the same workspace
+    // @returns PopOutRtn (and object updates)
+    PopOutTab(tabId: string, pos: Point, size: WinSize): Promise<PopOutRtn> {
+        return callBackendService(this?.waveEnv, "window", "PopOutTab", Array.from(arguments))
     }
 
     // set window position and size

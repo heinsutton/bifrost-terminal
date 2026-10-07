@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package wcore
@@ -134,6 +134,10 @@ func DeleteWorkspace(ctx context.Context, workspaceId string, force bool) (bool,
 		return false, "", nil
 	}
 
+	err = foldPopOutWindows(ctx, workspaceId)
+	if err != nil {
+		return false, "", err
+	}
 	for _, tabId := range workspace.TabIds {
 		log.Printf("deleting tab %s\n", tabId)
 		_, err := DeleteTab(ctx, workspaceId, tabId, false)
@@ -310,7 +314,9 @@ func createEmptyTab(ctx context.Context, workspaceId string) (*waveobj.Tab, erro
 // Must delete all blocks individually first.
 // Also deletes LayoutState.
 // recursive: if true, will recursively close parent window, workspace, if they are empty.
-// Returns new active tab id, error.
+// Returns new active tab id of the window that showed the tab, error.
+// A popped-out window left without tabs is deleted (returns ""). If the main window loses its
+// last tab while popped-out windows exist, they are folded back and the main window stays open.
 func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive bool) (string, error) {
 	ws, _ := wstore.DBGet[*waveobj.Workspace](ctx, workspaceId)
 	if ws == nil {
@@ -322,7 +328,6 @@ func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive 
 	if tabIdx == -1 {
 		return "", fmt.Errorf("tab %s not found in workspace %s", tabId, workspaceId)
 	}
-	ws.TabIds = append(ws.TabIds[:tabIdx], ws.TabIds[tabIdx+1:]...)
 
 	// close blocks (sends events + stops block controllers)
 	tab, _ := wstore.DBGet[*waveobj.Tab](ctx, tabId)
@@ -335,27 +340,98 @@ func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive 
 		}
 	}
 
-	// if the tab is active, determine new active tab
-	newActiveTabId := ws.ActiveTabId
-	if ws.ActiveTabId == tabId {
-		if len(ws.TabIds) > 0 {
-			newActiveTabId = ws.TabIds[max(0, min(tabIdx-1, len(ws.TabIds)-1))]
-		} else {
-			newActiveTabId = ""
+	popOutWindowId := ""
+	var closedWindowIds []string
+	newActiveTabId, err := wstore.WithTxRtn(ctx, func(tx *wstore.TxWrap) (string, error) {
+		txCtx := tx.Context()
+		ws, err := wstore.DBMustGet[*waveobj.Workspace](txCtx, workspaceId)
+		if err != nil {
+			return "", fmt.Errorf("error getting workspace: %w", err)
 		}
-	}
-	ws.ActiveTabId = newActiveTabId
+		popOutWindowId = ws.PopOutTabs[tabId]
+		ownerTabIds, ownerIdx := removeTabId(getTabIdsForOwner(ws, popOutWindowId), tabId)
+		if ownerIdx == -1 {
+			return "", fmt.Errorf("tab %s not found in workspace %s", tabId, workspaceId)
+		}
+		ws.TabIds = utilfn.RemoveElemFromSlice(ws.TabIds, tabId)
+		delete(ws.PopOutTabs, tabId)
 
-	wstore.DBUpdate(ctx, ws)
-	wstore.DBDelete(ctx, waveobj.OType_Tab, tabId)
-	if tab != nil {
-		wstore.DBDelete(ctx, waveobj.OType_LayoutState, tab.LayoutState)
+		// if the tab is active, determine new active tab
+		newActiveTabId := ""
+		if popOutWindowId != "" {
+			popOutWindow, err := wstore.DBGet[*waveobj.Window](txCtx, popOutWindowId)
+			if err != nil {
+				return "", fmt.Errorf("error getting window %s: %w", popOutWindowId, err)
+			}
+			if len(ownerTabIds) == 0 {
+				err = closePopOutWindowTx(txCtx, ws, popOutWindowId)
+				if err != nil {
+					return "", err
+				}
+				closedWindowIds = append(closedWindowIds, popOutWindowId)
+			} else if popOutWindow != nil {
+				newActiveTabId = popOutWindow.ActiveTabId
+				if newActiveTabId == tabId {
+					newActiveTabId = pickNeighbourTab(ownerTabIds, ownerIdx)
+					err = setWindowActiveTabTx(txCtx, ws, popOutWindow, newActiveTabId)
+					if err != nil {
+						return "", err
+					}
+				}
+			} else {
+				newActiveTabId = pickNeighbourTab(ownerTabIds, ownerIdx)
+			}
+		} else {
+			newActiveTabId = ws.ActiveTabId
+			if ws.ActiveTabId == tabId {
+				newActiveTabId = pickNeighbourTab(ownerTabIds, ownerIdx)
+			}
+			if len(ownerTabIds) == 0 && len(ws.PopOutTabs) > 0 {
+				foldedWindowIds, err := foldPopOutWindowsTx(txCtx, ws)
+				if err != nil {
+					return "", err
+				}
+				closedWindowIds = append(closedWindowIds, foldedWindowIds...)
+				newActiveTabId = ""
+				if len(ws.TabIds) > 0 {
+					newActiveTabId = ws.TabIds[0]
+				}
+			}
+			ws.ActiveTabId = newActiveTabId
+		}
+		if len(ws.PopOutTabs) == 0 {
+			ws.PopOutTabs = nil
+		}
+
+		err = wstore.DBUpdate(txCtx, ws)
+		if err != nil {
+			return "", fmt.Errorf("error updating workspace: %w", err)
+		}
+		err = wstore.DBDelete(txCtx, waveobj.OType_Tab, tabId)
+		if err != nil {
+			return "", fmt.Errorf("error deleting tab: %w", err)
+		}
+		if tab != nil {
+			err = wstore.DBDelete(txCtx, waveobj.OType_LayoutState, tab.LayoutState)
+			if err != nil {
+				return "", fmt.Errorf("error deleting layout state: %w", err)
+			}
+		}
+		return newActiveTabId, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if len(closedWindowIds) > 0 {
+		log.Printf("closed popped-out windows %v of workspace %s\n", closedWindowIds, workspaceId)
+		sendElectronCloseWindows(closedWindowIds)
+		publishWorkspaceUpdate()
 	}
 
 	// if no tabs remaining, close window
-	if recursive && newActiveTabId == "" {
+	if recursive && newActiveTabId == "" && popOutWindowId == "" {
 		log.Printf("no tabs remaining in workspace %s, closing window\n", workspaceId)
-		windowId, err := wstore.DBFindWindowForWorkspaceId(ctx, workspaceId)
+		windowId, err := FindMainWindowForWorkspace(ctx, workspaceId)
 		if err != nil {
 			return newActiveTabId, fmt.Errorf("unable to find window for workspace id %v: %w", workspaceId, err)
 		}
@@ -367,37 +443,74 @@ func DeleteTab(ctx context.Context, workspaceId string, tabId string, recursive 
 	return newActiveTabId, nil
 }
 
+// Sets the active tab of the window that shows the tab (a popped-out window or the main window).
 func SetActiveTab(ctx context.Context, workspaceId string, tabId string) error {
-	if tabId != "" && workspaceId != "" {
-		workspace, err := GetWorkspace(ctx, workspaceId)
+	if tabId == "" || workspaceId == "" {
+		return nil
+	}
+	return wstore.WithTx(ctx, func(tx *wstore.TxWrap) error {
+		txCtx := tx.Context()
+		workspace, err := GetWorkspace(txCtx, workspaceId)
 		if err != nil {
 			return fmt.Errorf("workspace %s not found: %w", workspaceId, err)
 		}
-		tab, _ := wstore.DBGet[*waveobj.Tab](ctx, tabId)
+		tab, _ := wstore.DBGet[*waveobj.Tab](txCtx, tabId)
 		if tab == nil {
 			return fmt.Errorf("tab not found: %q", tabId)
 		}
+		if popOutWindowId := workspace.PopOutTabs[tabId]; popOutWindowId != "" {
+			popOutWindow, err := wstore.DBMustGet[*waveobj.Window](txCtx, popOutWindowId)
+			if err != nil {
+				return fmt.Errorf("error getting window %s: %w", popOutWindowId, err)
+			}
+			return setWindowActiveTabTx(txCtx, workspace, popOutWindow, tabId)
+		}
 		workspace.ActiveTabId = tabId
-		wstore.DBUpdate(ctx, workspace)
-	}
-	return nil
-}
-
-func SendActiveTabUpdate(ctx context.Context, workspaceId string, newActiveTabId string) {
-	eventbus.SendEventToElectron(eventbus.WSEventType{
-		EventType: eventbus.WSEvent_ElectronUpdateActiveTab,
-		Data:      &waveobj.ActiveTabUpdate{WorkspaceId: workspaceId, NewActiveTabId: newActiveTabId},
+		err = wstore.DBUpdate(txCtx, workspace)
+		if err != nil {
+			return fmt.Errorf("error updating workspace: %w", err)
+		}
+		return nil
 	})
 }
 
-func UpdateWorkspaceTabIds(ctx context.Context, workspaceId string, tabIds []string) error {
-	ws, _ := wstore.DBGet[*waveobj.Workspace](ctx, workspaceId)
-	if ws == nil {
-		return fmt.Errorf("workspace not found: %q", workspaceId)
+func SendActiveTabUpdate(ctx context.Context, workspaceId string, newActiveTabId string) {
+	windowId := ""
+	if newActiveTabId != "" {
+		ws, err := GetWorkspace(ctx, workspaceId)
+		if err == nil {
+			windowId, err = getTabOwnerWindowId(ctx, ws, newActiveTabId)
+		}
+		if err != nil {
+			log.Printf("error finding window for active tab %s: %v\n", newActiveTabId, err)
+		}
 	}
-	ws.TabIds = tabIds
-	wstore.DBUpdate(ctx, ws)
-	return nil
+	eventbus.SendEventToElectron(eventbus.WSEventType{
+		EventType: eventbus.WSEvent_ElectronUpdateActiveTab,
+		Data:      &waveobj.ActiveTabUpdate{WorkspaceId: workspaceId, NewActiveTabId: newActiveTabId, WindowId: windowId},
+	})
+}
+
+// tabIds is either the workspace's full tab list or the reordered tabs of one window
+// (each tab bar only sends its own window's tabs); see mergeTabIdOrder.
+func UpdateWorkspaceTabIds(ctx context.Context, workspaceId string, tabIds []string) error {
+	return wstore.WithTx(ctx, func(tx *wstore.TxWrap) error {
+		txCtx := tx.Context()
+		ws, _ := wstore.DBGet[*waveobj.Workspace](txCtx, workspaceId)
+		if ws == nil {
+			return fmt.Errorf("workspace not found: %q", workspaceId)
+		}
+		newTabIds, err := mergeTabIdOrder(ws.TabIds, tabIds)
+		if err != nil {
+			return err
+		}
+		ws.TabIds = newTabIds
+		err = wstore.DBUpdate(txCtx, ws)
+		if err != nil {
+			return fmt.Errorf("error updating workspace: %w", err)
+		}
+		return nil
+	})
 }
 
 // ListWorkspaces returns only "saved" workspaces (Name, Icon, and Color all
@@ -436,6 +549,9 @@ func listWorkspacesInternal(ctx context.Context, includeUnsaved bool) (waveobj.W
 	}
 	workspaceToWindow := make(map[string]string)
 	for _, window := range windows {
+		if window.IsPopOut {
+			continue
+		}
 		workspaceToWindow[window.WorkspaceId] = window.OID
 	}
 

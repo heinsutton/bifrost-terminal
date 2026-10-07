@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package windowservice
@@ -109,4 +109,100 @@ func (svc *WindowService) CloseWindow_Meta() tsgenmeta.MethodMeta {
 func (svc *WindowService) CloseWindow(ctx context.Context, windowId string, fromElectron bool) error {
 	ctx = waveobj.ContextWithUpdates(ctx)
 	return wcore.CloseWindow(ctx, windowId, fromElectron)
+}
+
+func (svc *WindowService) PopOutTab_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "move a tab into a new popped-out window of the same workspace",
+		ArgNames:   []string{"ctx", "tabId", "pos", "size"},
+		ReturnDesc: "PopOutRtn",
+	}
+}
+
+func (svc *WindowService) PopOutTab(ctx context.Context, tabId string, pos *waveobj.Point, size *waveobj.WinSize) (*wcore.PopOutRtn, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	rtn, err := wcore.PopOutTab(ctx, tabId, pos, size)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error popping out tab: %w", err)
+	}
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("WindowService:PopOutTab:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	return rtn, updates, nil
+}
+
+func (svc *WindowService) MoveTabToWindow_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "move a tab to another window of the same workspace (index -1 appends)",
+		ArgNames:   []string{"ctx", "tabId", "destWindowId", "index"},
+		ReturnDesc: "TabWindowMoveRtn",
+	}
+}
+
+func (svc *WindowService) MoveTabToWindow(ctx context.Context, tabId string, destWindowId string, index int) (*wcore.TabWindowMoveRtn, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	rtn, err := wcore.MoveTabToWindow(ctx, tabId, destWindowId, index)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error moving tab to window: %w", err)
+	}
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("WindowService:MoveTabToWindow:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	return rtn, updates, nil
+}
+
+func (svc *WindowService) CreateTabInWindow_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "create a new tab shown in the given window and make it that window's active tab",
+		ArgNames:   []string{"ctx", "windowId"},
+		ReturnDesc: "tabId",
+	}
+}
+
+func (svc *WindowService) CreateTabInWindow(ctx context.Context, windowId string) (string, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	tabId, err := wcore.CreateTabInWindow(ctx, windowId)
+	if err != nil {
+		return "", nil, fmt.Errorf("error creating tab in window: %w", err)
+	}
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("WindowService:CreateTabInWindow:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	return tabId, updates, nil
+}
+
+func (svc *WindowService) PopOutBlock_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "move a block into a new tab in a new popped-out window of the same workspace",
+		ArgNames:   []string{"ctx", "blockId", "pos", "size"},
+		ReturnDesc: "PopOutRtn",
+	}
+}
+
+func (svc *WindowService) PopOutBlock(ctx context.Context, blockId string, pos *waveobj.Point, size *waveobj.WinSize) (*wcore.PopOutRtn, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	rtn, err := wcore.PopOutBlock(ctx, blockId, pos, size)
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("WindowService:PopOutBlock:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	if err != nil {
+		return nil, updates, fmt.Errorf("error popping out block: %w", err)
+	}
+	return rtn, updates, nil
 }

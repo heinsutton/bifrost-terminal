@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package wshserver
@@ -916,12 +916,11 @@ func (ws *WshServer) BlocksListCommand(
 			return nil, err
 		}
 
-		windowId, err := wstore.DBFindWindowForWorkspaceId(ctx, wsID)
-		if err != nil {
-			log.Printf("error finding window for workspace %s: %v", wsID, err)
-		}
-
 		for _, tabID := range wsData.TabIds {
+			windowId, err := wcore.FindWindowForTab(ctx, tabID)
+			if err != nil {
+				log.Printf("error finding window for tab %s: %v", tabID, err)
+			}
 			tab, err := wstore.DBMustGet[*waveobj.Tab](ctx, tabID)
 			if err != nil {
 				return nil, err

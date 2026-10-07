@@ -1272,6 +1272,13 @@ declare global {
         y: number;
     };
 
+    // wcore.PopOutRtn
+    type PopOutRtn = {
+        window: WaveWindow;
+        sourcewindowid: string;
+        sourcenewactivetabid: string;
+    };
+
     // wshrpc.ProcessInfo
     type ProcessInfo = {
         pid: number;
@@ -1689,6 +1696,14 @@ declare global {
         name: string;
         layoutstate: string;
         blockids: string[];
+    };
+
+    // wcore.TabWindowMoveRtn
+    type TabWindowMoveRtn = {
+        sourcewindowid: string;
+        sourcenewactivetabid: string;
+        destwindowid: string;
+        sourcewindowempty: boolean;
     };
 
     // waveobj.TermSize
@@ -2118,6 +2133,8 @@ declare global {
         pos: Point;
         winsize: WinSize;
         lastfocusts: number;
+        ispopout?: boolean;
+        activetabid?: string;
     };
 
     // wconfig.WebBookmark
@@ -2178,6 +2195,7 @@ declare global {
         color?: string;
         tabids: string[];
         activetabid: string;
+        popouttabs?: {[key: string]: string};
     };
 
     // wshrpc.WorkspaceInfoData

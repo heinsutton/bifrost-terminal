@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package wcore
@@ -28,6 +28,9 @@ func SwitchWorkspace(ctx context.Context, windowId string, workspaceId string) (
 	if err != nil {
 		return nil, fmt.Errorf("error getting window: %w", err)
 	}
+	if window.IsPopOut {
+		return nil, fmt.Errorf("cannot switch the workspace of a popped-out window")
+	}
 	curWsId := window.WorkspaceId
 	if curWsId == workspaceId {
 		return nil, nil
@@ -39,12 +42,19 @@ func SwitchWorkspace(ctx context.Context, windowId string, workspaceId string) (
 	}
 
 	for _, w := range allWindows {
+		if w.IsPopOut {
+			continue
+		}
 		if w.WorkspaceId == workspaceId {
 			log.Printf("workspace %s already has a window %s, focusing that window\n", workspaceId, w.OID)
 			client := wshclient.GetBareRpcClient()
 			err = wshclient.FocusWindowCommand(client, w.OID, &wshrpc.RpcOpts{Route: wshutil.ElectronRoute})
 			return nil, err
 		}
+	}
+	err = foldPopOutWindows(ctx, curWsId)
+	if err != nil {
+		return nil, err
 	}
 	window.WorkspaceId = workspaceId
 	err = wstore.DBUpdate(ctx, window)
@@ -129,11 +139,28 @@ func CreateWindow(ctx context.Context, winSize *waveobj.WinSize, workspaceId str
 
 // CloseWindow closes a window and deletes its workspace if it is empty and not named.
 // If fromElectron is true, it does not send an event to Electron.
+// A popped-out window returns its tabs to the main window and never deletes the workspace;
+// closing a main window folds its popped-out windows first.
 func CloseWindow(ctx context.Context, windowId string, fromElectron bool) error {
 	log.Printf("CloseWindow %s\n", windowId)
 	window, err := GetWindow(ctx, windowId)
+	if err == nil && window.IsPopOut {
+		err = closePopOutWindow(ctx, window)
+		if err != nil {
+			return err
+		}
+		log.Printf("closed popped-out window %s\n", windowId)
+		if !fromElectron {
+			sendElectronCloseWindows([]string{windowId})
+		}
+		return nil
+	}
 	if err == nil {
 		log.Printf("got window %s\n", windowId)
+		err = foldPopOutWindows(ctx, window.WorkspaceId)
+		if err != nil {
+			return err
+		}
 		deleted, _, err := DeleteWorkspace(ctx, window.WorkspaceId, false)
 		if err != nil {
 			log.Printf("error deleting workspace: %v\n", err)

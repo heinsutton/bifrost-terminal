@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package userinput
@@ -15,6 +15,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/blocklogger"
 	"github.com/wavetermdev/waveterm/pkg/genconn"
 	"github.com/wavetermdev/waveterm/pkg/util/utilfn"
+	"github.com/wavetermdev/waveterm/pkg/wcore"
 	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wstore"
 )
@@ -92,11 +93,7 @@ func determineScopes(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unabled to determine tab for route: %w", err)
 	}
-	workspaceId, err := wstore.DBFindWorkspaceForTabId(ctx, tabId)
-	if err != nil {
-		return nil, fmt.Errorf("unabled to determine workspace for route: %w", err)
-	}
-	windowId, err := wstore.DBFindWindowForWorkspaceId(ctx, workspaceId)
+	windowId, err := wcore.FindWindowForTab(ctx, tabId)
 	if err != nil {
 		return nil, fmt.Errorf("unabled to determine window for route: %w", err)
 	}

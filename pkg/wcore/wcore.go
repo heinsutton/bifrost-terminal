@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 // wave core application coordinator
@@ -60,6 +60,10 @@ func EnsureInitialData() (bool, error) {
 	}
 	log.Printf("clientid: %s\n", client.OID)
 	wstore.SetClientId(client.OID)
+	err = foldAllPopOutWindows(ctx, client)
+	if err != nil {
+		return firstLaunch, fmt.Errorf("error folding popped-out windows: %w", err)
+	}
 	if len(client.WindowIds) == 1 {
 		log.Println("client has one window")
 		CheckAndFixWindow(ctx, client.WindowIds[0])
