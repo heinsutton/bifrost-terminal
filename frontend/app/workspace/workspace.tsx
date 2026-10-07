@@ -12,8 +12,9 @@ import { Widgets } from "@/app/workspace/widgets";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { atoms, getApi, getSettingsKeyAtom } from "@/store/global";
 import { isMacOS } from "@/util/platformutil";
+import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
     ImperativePanelGroupHandle,
     ImperativePanelHandle,
@@ -38,6 +39,39 @@ const MacOSTabBarSpacer = memo(() => {
     );
 });
 MacOSTabBarSpacer.displayName = "MacOSTabBarSpacer";
+
+const WidgetsSidebarWidth = 48;
+const WidgetsSidebarOverlap = 4;
+const WidgetsSidebarSlideMs = 180;
+
+const WidgetsSlot = memo(({ visible }: { visible: boolean }) => {
+    const [animate, setAnimate] = useState(false);
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setAnimate(true));
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
+    return (
+        <div
+            aria-hidden={!visible}
+            inert={!visible}
+            className={cn(
+                "flex flex-col shrink-0 overflow-hidden",
+                animate && "transition-[width,margin-left,visibility] ease-out motion-reduce:transition-none"
+            )}
+            style={{
+                width: visible ? WidgetsSidebarWidth : 0,
+                marginLeft: visible ? -WidgetsSidebarOverlap : 0,
+                visibility: visible ? "visible" : "hidden",
+                transitionDuration: `${WidgetsSidebarSlideMs}ms`,
+                transitionDelay: visible ? "0ms" : `0ms, 0ms, ${WidgetsSidebarSlideMs}ms`,
+            }}
+        >
+            <Widgets />
+        </div>
+    );
+});
+WidgetsSlot.displayName = "WidgetsSlot";
 
 const WorkspaceElem = memo(() => {
     const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
@@ -159,7 +193,7 @@ const WorkspaceElem = memo(() => {
                             ) : (
                                 <div className="flex flex-row h-full">
                                     <TabContent key={tabId} tabId={tabId} noTopPadding={showLeftTabBar && isMacOS()} />
-                                    {widgetsSidebarVisible && <Widgets />}
+                                    <WidgetsSlot visible={widgetsSidebarVisible} />
                                 </div>
                             )}
                         </Panel>
