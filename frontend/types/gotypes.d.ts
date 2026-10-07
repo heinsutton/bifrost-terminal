@@ -1225,6 +1225,13 @@ declare global {
         color: string;
     };
 
+    // wcore.MoveBlockRtn
+    type MoveBlockRtn = {
+        sourcetabid: string;
+        desttabid: string;
+        sourcetabempty: boolean;
+    };
+
     // waveobj.ORef
     type ORef = string;
 

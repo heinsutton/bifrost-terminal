@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
+import { moveBlockToTab } from "@/app/store/blockmove";
 import { FocusManager } from "@/app/store/focusManager";
 import {
     atoms,
@@ -710,6 +711,16 @@ function registerGlobalKeys() {
             return true;
         });
     }
+    globalKeyMap.set("Alt:c{KeyO}", () => {
+        if (!isTabWindow()) {
+            return true;
+        }
+        const blockId = getFocusedBlockId();
+        if (blockId != null) {
+            fireAndForget(() => moveBlockToTab(blockId, null));
+        }
+        return true;
+    });
     globalKeyMap.set("Ctrl:Shift:x", () => {
         const blockId = getFocusedBlockId();
         if (blockId == null) {

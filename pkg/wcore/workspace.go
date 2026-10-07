@@ -290,6 +290,23 @@ func createTabObj(ctx context.Context, workspaceId string, name string, meta wav
 	return tab, nil
 }
 
+// creates an empty tab with an auto-generated name; does not apply the new-tab starter layout
+func createEmptyTab(ctx context.Context, workspaceId string) (*waveobj.Tab, error) {
+	ws, err := GetWorkspace(ctx, workspaceId)
+	if err != nil {
+		return nil, fmt.Errorf("workspace %s not found: %w", workspaceId, err)
+	}
+	tabNames := make([]string, 0, len(ws.TabIds))
+	for _, tabId := range ws.TabIds {
+		tab, err := wstore.DBGet[*waveobj.Tab](ctx, tabId)
+		if err != nil || tab == nil {
+			continue
+		}
+		tabNames = append(tabNames, tab.Name)
+	}
+	return createTabObj(ctx, workspaceId, getNextTabName(tabNames), nil)
+}
+
 // Must delete all blocks individually first.
 // Also deletes LayoutState.
 // recursive: if true, will recursively close parent window, workspace, if they are empty.

@@ -30,6 +30,12 @@ export class BlockServiceType {
         return callBackendService(this?.waveEnv, "block", "GetControllerStatus", Array.from(arguments))
     }
 
+    // move a block to another tab of the same workspace (empty destTabId creates a new tab)
+    // @returns MoveBlockRtn (and object updates)
+    MoveBlockToTab(blockId: string, destTabId: string): Promise<MoveBlockRtn> {
+        return callBackendService(this?.waveEnv, "block", "MoveBlockToTab", Array.from(arguments))
+    }
+
     // save the terminal state to a blockfile
     SaveTerminalState(blockId: string, state: string, stateType: string, ptyOffset: number, termSize: TermSize): Promise<void> {
         return callBackendService(this?.waveEnv, "block", "SaveTerminalState", Array.from(arguments))

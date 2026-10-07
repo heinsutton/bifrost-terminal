@@ -83,6 +83,7 @@ export enum LayoutTreeActionType {
     InsertNode = "insert",
     InsertNodeAtIndex = "insertatindex",
     DeleteNode = "delete",
+    RemoveNode = "removenode",
     FocusNode = "focus",
     MagnifyNodeToggle = "magnify",
     ClearTree = "clear",

@@ -150,6 +150,97 @@ func createBlockObj(ctx context.Context, tabId string, blockDef *waveobj.BlockDe
 	})
 }
 
+type MoveBlockRtn struct {
+	SourceTabId    string `json:"sourcetabid"`
+	DestTabId      string `json:"desttabid"`
+	SourceTabEmpty bool   `json:"sourcetabempty"`
+}
+
+// Re-parents a block to another tab of the same workspace without touching its controller or data.
+// destTabId == "" creates a new empty tab in the source tab's workspace.
+func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*MoveBlockRtn, error) {
+	rtn, err := wstore.WithTxRtn(ctx, func(tx *wstore.TxWrap) (*MoveBlockRtn, error) {
+		txCtx := tx.Context()
+		block, err := wstore.DBGet[*waveobj.Block](txCtx, blockId)
+		if err != nil {
+			return nil, fmt.Errorf("error getting block: %w", err)
+		}
+		if block == nil {
+			return nil, fmt.Errorf("block not found: %q", blockId)
+		}
+		parentORef := waveobj.ParseORefNoErr(block.ParentORef)
+		if parentORef == nil || parentORef.OType != waveobj.OType_Tab {
+			return nil, fmt.Errorf("block %q is not a direct child of a tab", blockId)
+		}
+		sourceTabId := parentORef.OID
+		sourceTab, err := wstore.DBGet[*waveobj.Tab](txCtx, sourceTabId)
+		if err != nil || sourceTab == nil {
+			return nil, fmt.Errorf("source tab not found: %q", sourceTabId)
+		}
+		if destTabId == sourceTabId {
+			return nil, fmt.Errorf("block is already in tab %q", destTabId)
+		}
+		sourceWorkspaceId, err := wstore.DBFindWorkspaceForTabId(txCtx, sourceTabId)
+		if err != nil {
+			return nil, fmt.Errorf("error finding workspace for tab %s: %w", sourceTabId, err)
+		}
+		var destTab *waveobj.Tab
+		if destTabId == "" {
+			destTab, err = createEmptyTab(txCtx, sourceWorkspaceId)
+			if err != nil {
+				return nil, fmt.Errorf("error creating destination tab: %w", err)
+			}
+			destTabId = destTab.OID
+		} else {
+			destWorkspaceId, err := wstore.DBFindWorkspaceForTabId(txCtx, destTabId)
+			if err != nil {
+				return nil, fmt.Errorf("error finding workspace for tab %s: %w", destTabId, err)
+			}
+			if destWorkspaceId != sourceWorkspaceId {
+				return nil, fmt.Errorf("cannot move a block to a tab in a different workspace")
+			}
+			destTab, err = wstore.DBGet[*waveobj.Tab](txCtx, destTabId)
+			if err != nil || destTab == nil {
+				return nil, fmt.Errorf("destination tab not found: %q", destTabId)
+			}
+		}
+		block.ParentORef = waveobj.MakeORef(waveobj.OType_Tab, destTabId).String()
+		sourceTab.BlockIds = utilfn.RemoveElemFromSlice(sourceTab.BlockIds, blockId)
+		destTab.BlockIds = append(destTab.BlockIds, blockId)
+		for _, obj := range []waveobj.WaveObj{block, sourceTab, destTab} {
+			if err := wstore.DBUpdate(txCtx, obj); err != nil {
+				return nil, fmt.Errorf("error updating %s: %w", obj.GetOType(), err)
+			}
+		}
+		return &MoveBlockRtn{
+			SourceTabId:    sourceTabId,
+			DestTabId:      destTabId,
+			SourceTabEmpty: len(sourceTab.BlockIds) == 0,
+		}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = QueueLayoutActionForTab(ctx, rtn.DestTabId, waveobj.LayoutActionData{
+		ActionType: LayoutActionDataType_Insert,
+		BlockId:    blockId,
+		Focused:    true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error queuing insert layout action: %w", err)
+	}
+	if !rtn.SourceTabEmpty {
+		err = QueueLayoutActionForTab(ctx, rtn.SourceTabId, waveobj.LayoutActionData{
+			ActionType: LayoutActionDataType_RemoveNode,
+			BlockId:    blockId,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error queuing removenode layout action: %w", err)
+		}
+	}
+	return rtn, nil
+}
+
 // Must delete all blocks individually first.
 // Also deletes LayoutState.
 // recursive: if true, will recursively close parent tab, window, workspace, if they are empty.

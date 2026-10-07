@@ -23,6 +23,7 @@ const (
 	LayoutActionDataType_SplitHorizontal = "splithorizontal"
 	LayoutActionDataType_SplitVertical   = "splitvertical"
 	LayoutActionDataType_CleanupOrphaned = "cleanuporphaned"
+	LayoutActionDataType_RemoveNode      = "removenode"
 )
 
 type PortableLayout []struct {

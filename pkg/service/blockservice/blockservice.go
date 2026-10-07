@@ -11,9 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/wavetermdev/waveterm/pkg/blockcontroller"
 	"github.com/wavetermdev/waveterm/pkg/filestore"
+	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/tsgen/tsgenmeta"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
 	"github.com/wavetermdev/waveterm/pkg/wcore"
+	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 	"github.com/wavetermdev/waveterm/pkg/wstore"
 )
@@ -65,6 +67,30 @@ func (bs *BlockService) SaveTerminalState(ctx context.Context, blockId string, s
 		return fmt.Errorf("cannot save terminal state meta: %w", err)
 	}
 	return nil
+}
+
+func (*BlockService) MoveBlockToTab_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "move a block to another tab of the same workspace (empty destTabId creates a new tab)",
+		ArgNames:   []string{"ctx", "blockId", "destTabId"},
+		ReturnDesc: "MoveBlockRtn",
+	}
+}
+
+func (bs *BlockService) MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*wcore.MoveBlockRtn, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	rtn, err := wcore.MoveBlockToTab(ctx, blockId, destTabId)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error moving block to tab: %w", err)
+	}
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("BlockService:MoveBlockToTab:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	return rtn, updates, nil
 }
 
 func (*BlockService) CleanupOrphanedBlocks_Meta() tsgenmeta.MethodMeta {

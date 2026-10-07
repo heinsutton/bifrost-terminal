@@ -565,6 +565,24 @@ export class LayoutModel {
                 this.treeReducer(splitAction, false);
                 break;
             }
+            case LayoutTreeActionType.RemoveNode: {
+                const leaf = this?.getNodeByBlockId(action.blockid);
+                if (!leaf) {
+                    console.error(
+                        "Cannot apply eventbus layout action RemoveNode, could not find leaf node with blockId",
+                        action.blockid
+                    );
+                    break;
+                }
+                if (leaf.id === this.magnifiedNodeId) {
+                    this.magnifyNodeToggle(leaf.id);
+                }
+                this.treeReducer({
+                    type: LayoutTreeActionType.DeleteNode,
+                    nodeId: leaf.id,
+                } as LayoutTreeDeleteNodeAction);
+                break;
+            }
             case "cleanuporphaned": {
                 await this.cleanupOrphanedBlocks();
                 break;
