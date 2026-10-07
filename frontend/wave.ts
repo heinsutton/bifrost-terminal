@@ -14,9 +14,10 @@ import {
     registerGlobalKeys,
 } from "@/app/store/keymodel";
 import { modalsModel } from "@/app/store/modalmodel";
+import { setTabHandoverState } from "@/app/store/tabhandover";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { makeBuilderRouteId, makeTabRouteId } from "@/app/store/wshrouter";
-import { initWshrpc, TabRpcClient } from "@/app/store/wshrpcutil";
+import { DefaultRouter, initWshrpc, TabRpcClient } from "@/app/store/wshrpcutil";
 import { BuilderApp } from "@/builder/builder-app";
 import { getLayoutModelForStaticTab } from "@/layout/index";
 import { countersClear, countersPrint } from "@/store/counters";
@@ -193,6 +194,13 @@ async function initWave(initOpts: WaveInitOpts) {
     registerGlobalKeys();
     registerElectronReinjectKeyHandler();
     registerControlShiftStateUpdateHandler();
+    getApi().onTabHandover((state) => {
+        setTabHandoverState(state);
+        if (state === "rollback") {
+            // the other window's view bound this tab's route while it loaded; take it back
+            DefaultRouter.reannounceRoutes();
+        }
+    });
     await loadMonaco();
     const fullConfig = await RpcApi.GetFullConfigCommand(TabRpcClient);
     console.log("fullconfig", fullConfig);

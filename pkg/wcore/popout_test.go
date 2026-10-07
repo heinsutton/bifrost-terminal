@@ -284,6 +284,12 @@ func TestMoveTabToWindow(t *testing.T) {
 	if !rtn.SourceWindowEmpty {
 		t.Fatalf("expected the popped-out window to be empty")
 	}
+	if !windowExists(t, ctx, pop) {
+		t.Fatalf("an emptied popped-out window must be kept until the caller closes it")
+	}
+	if err := CloseWindow(ctx, pop, true); err != nil {
+		t.Fatalf("CloseWindow(empty popped) failed: %v", err)
+	}
 	assertWindowGone(t, ctx, pop)
 	ws = mustGetWorkspace(t, ctx, fx.wsId)
 	if len(ws.PopOutTabs) != 0 || !slices.Equal(ws.TabIds, []string{a, b, c, d}) || ws.ActiveTabId != d {
@@ -611,5 +617,25 @@ func TestPopOutBlock(t *testing.T) {
 	}
 	if _, err := PopOutBlock(ctx, blockIds[1], nil, nil); err == nil {
 		t.Fatalf("expected popping out a tab's only block to fail")
+	}
+}
+
+func TestMoveTabToWindow_RollbackIntoEmptiedPopOut(t *testing.T) {
+	ctx := initPopOutTestStore(t)
+	fx := makePopOutFixture(t, ctx, 3, true)
+	b := fx.tabIds[1]
+	pop := mustPopOutTab(t, ctx, b).Window.OID
+
+	rtn, err := MoveTabToWindow(ctx, b, fx.windowId, -1)
+	if err != nil || !rtn.SourceWindowEmpty {
+		t.Fatalf("MoveTabToWindow = %+v, %v", rtn, err)
+	}
+	if _, err := MoveTabToWindow(ctx, b, pop, 0); err != nil {
+		t.Fatalf("moving the tab back into the emptied popped-out window failed: %v", err)
+	}
+	ws := mustGetWorkspace(t, ctx, fx.wsId)
+	window, _ := GetWindow(ctx, pop)
+	if ws.PopOutTabs[b] != pop || window.ActiveTabId != b {
+		t.Fatalf("rollback did not restore the tab: popout=%v active=%s", ws.PopOutTabs, window.ActiveTabId)
 	}
 }

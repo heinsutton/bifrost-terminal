@@ -121,9 +121,11 @@ export class WaveTabView extends WebContentsView {
     createdTs: number; // ts milliseconds
     initPromise: Promise<void>;
     initResolve: () => void;
+    initReject: (reason: Error) => void;
     savedInitOpts: WaveInitOpts;
     waveReadyPromise: Promise<void>;
     waveReadyResolve: () => void;
+    waveReadyReject: (reason: Error) => void;
     isInitialized: boolean = false;
     isWaveReady: boolean = false;
     isDestroyed: boolean = false;
@@ -141,19 +143,27 @@ export class WaveTabView extends WebContentsView {
         this.createdTs = Date.now();
         this.isWaveAIOpen = false;
         this.savedInitOpts = null;
-        this.initPromise = new Promise((resolve, _) => {
+        this.initPromise = new Promise((resolve, reject) => {
             this.initResolve = resolve;
+            this.initReject = reject;
         });
-        this.initPromise.then(() => {
-            this.isInitialized = true;
-            console.log("tabview init", Date.now() - this.createdTs + "ms");
-        });
-        this.waveReadyPromise = new Promise((resolve, _) => {
+        this.initPromise.then(
+            () => {
+                this.isInitialized = true;
+                console.log("tabview init", Date.now() - this.createdTs + "ms");
+            },
+            () => {}
+        );
+        this.waveReadyPromise = new Promise((resolve, reject) => {
             this.waveReadyResolve = resolve;
+            this.waveReadyReject = reject;
         });
-        this.waveReadyPromise.then(() => {
-            this.isWaveReady = true;
-        });
+        this.waveReadyPromise.then(
+            () => {
+                this.isWaveReady = true;
+            },
+            () => {}
+        );
         const wcId = this.webContents.id;
         wcIdToWaveTabMap.set(wcId, this);
         if (isDevVite) {
@@ -163,8 +173,9 @@ export class WaveTabView extends WebContentsView {
         }
         this.webContents.on("destroyed", () => {
             wcIdToWaveTabMap.delete(wcId);
-            removeWaveTabView(this.waveTabId);
+            removeWaveTabView(this);
             this.isDestroyed = true;
+            this.settlePendingInit();
         });
         this.setBackgroundColor(computeBgColor(fullConfig));
     }
@@ -221,34 +232,47 @@ export class WaveTabView extends WebContentsView {
         return bounds.x == 0 && bounds.y == 0;
     }
 
+    // a destroyed view never signals init/wave-ready: reject the pending promises so a window's
+    // action queue awaiting them (processActionQueue -> initializeTab) moves on instead of hanging
+    private settlePendingInit() {
+        const err = new Error(`tab view destroyed (tab ${this.waveTabId})`);
+        this.initReject?.(err);
+        this.waveReadyReject?.(err);
+    }
+
     destroy() {
         console.log("destroy tab", this.waveTabId);
-        removeWaveTabView(this.waveTabId);
+        removeWaveTabView(this);
         if (!this.isDestroyed) {
             this.webContents?.close();
         }
         this.isDestroyed = true;
+        this.settlePendingInit();
     }
 }
 
 let MaxCacheSize = 10;
+// keyed by window and tab: while a tab is handed over to another window both windows hold a view of it
 const wcvCache = new Map<string, WaveTabView>();
+
+function makeTabViewCacheKey(waveWindowId: string, waveTabId: string): string {
+    return `${waveWindowId}:${waveTabId}`;
+}
 
 export function setMaxTabCacheSize(size: number) {
     console.log("setMaxTabCacheSize", size);
     MaxCacheSize = size;
 }
 
-export function getWaveTabView(waveTabId: string): WaveTabView | undefined {
-    const rtn = wcvCache.get(waveTabId);
+export function getWaveTabView(waveWindowId: string, waveTabId: string): WaveTabView | undefined {
+    const rtn = wcvCache.get(makeTabViewCacheKey(waveWindowId, waveTabId));
     if (rtn) {
         rtn.lastUsedTs = Date.now();
     }
     return rtn;
 }
 
-function tryEvictEntry(waveTabId: string): boolean {
-    const tabView = wcvCache.get(waveTabId);
+function tryEvictEntry(tabView: WaveTabView): boolean {
     if (!tabView) {
         return false;
     }
@@ -285,7 +309,7 @@ function checkAndEvictCache(): void {
         return a.lastUsedTs - b.lastUsedTs;
     });
     for (let i = 0; i < sorted.length - MaxCacheSize; i++) {
-        tryEvictEntry(sorted[i].waveTabId);
+        tryEvictEntry(sorted[i]);
     }
 }
 
@@ -293,31 +317,22 @@ export function clearTabCache() {
     const wcVals = Array.from(wcvCache.values());
     for (let i = 0; i < wcVals.length; i++) {
         const tabView = wcVals[i];
-        tryEvictEntry(tabView.waveTabId);
+        tryEvictEntry(tabView);
     }
 }
 
 // returns [tabview, initialized]
 export async function getOrCreateWebViewForTab(waveWindowId: string, tabId: string): Promise<[WaveTabView, boolean]> {
-    let tabView = getWaveTabView(tabId);
-    if (tabView && tabView.waveWindowId === waveWindowId) {
-        return [tabView, true];
-    }
+    let tabView = getWaveTabView(waveWindowId, tabId);
     if (tabView) {
-        // the tab moved to another window: never reuse a view that belongs to (or is attached to) a different window
-        console.log("getOrCreateWebViewForTab: dropping view of tab owned by another window", tabId);
-        const ownerWin = getWaveWindowById(tabView.waveWindowId);
-        ownerWin?.removeTabView(tabId, true);
-        if (!tabView.isDestroyed) {
-            tabView.destroy();
-        }
+        return [tabView, true];
     }
     const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
     tabView = getSpareTab(fullConfig);
     tabView.waveWindowId = waveWindowId;
     tabView.lastUsedTs = Date.now();
-    setWaveTabView(tabId, tabView);
     tabView.waveTabId = tabId;
+    setWaveTabView(tabView);
     tabView.webContents.on("will-navigate", shNavHandler);
     tabView.webContents.on("will-frame-navigate", shFrameNavHandler);
     tabView.webContents.on("did-attach-webview", (event, wc) => {
@@ -363,19 +378,22 @@ export async function getOrCreateWebViewForTab(waveWindowId: string, tabId: stri
     return [tabView, false];
 }
 
-export function setWaveTabView(waveTabId: string, wcv: WaveTabView): void {
-    if (waveTabId == null) {
+export function setWaveTabView(wcv: WaveTabView): void {
+    if (wcv?.waveTabId == null || wcv.waveWindowId == null) {
         return;
     }
-    wcvCache.set(waveTabId, wcv);
+    wcvCache.set(makeTabViewCacheKey(wcv.waveWindowId, wcv.waveTabId), wcv);
     checkAndEvictCache();
 }
 
-function removeWaveTabView(waveTabId: string): void {
-    if (waveTabId == null) {
+function removeWaveTabView(wcv: WaveTabView): void {
+    if (wcv?.waveTabId == null || wcv.waveWindowId == null) {
         return;
     }
-    wcvCache.delete(waveTabId);
+    const key = makeTabViewCacheKey(wcv.waveWindowId, wcv.waveTabId);
+    if (wcvCache.get(key) === wcv) {
+        wcvCache.delete(key);
+    }
 }
 
 let HotSpareTab: WaveTabView = null;

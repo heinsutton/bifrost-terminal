@@ -3,6 +3,7 @@
 
 import type { BlockNodeModel } from "@/app/block/blocktypes";
 import { setBadge } from "@/app/store/badge";
+import { isTabHandoverPending, onTabHandoverResume } from "@/app/store/tabhandover";
 import { getFileSubject } from "@/app/store/wps";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -304,6 +305,7 @@ export class TermWrap {
                 this.connectElem.removeEventListener("drop", dropHandler);
             },
         });
+        this.toDispose.push({ dispose: onTabHandoverResume(() => this.resendTermSize()) });
         this.handleResize();
         const pasteHandler = this.pasteHandler.bind(this);
         this.connectElem.addEventListener("paste", pasteHandler, true);
@@ -568,7 +570,10 @@ export class TermWrap {
                 "->",
                 `${this.terminal.rows}x${this.terminal.cols}`
             );
-            RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize });
+            // while this view hands its tab over to another window, that window sets the pty size
+            if (!isTabHandoverPending()) {
+                RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize });
+            }
         }
         dlog("resize", `${this.terminal.rows}x${this.terminal.cols}`, `${oldRows}x${oldCols}`, this.hasResized);
         if (!this.hasResized) {
@@ -577,8 +582,14 @@ export class TermWrap {
         }
     }
 
+    // after a rolled-back handover the other window may have resized the pty
+    resendTermSize() {
+        const termSize: TermSize = { rows: this.terminal.rows, cols: this.terminal.cols };
+        RpcApi.ControllerInputCommand(TabRpcClient, { blockid: this.blockId, termsize: termSize });
+    }
+
     processAndCacheData() {
-        if (this.dataBytesProcessed < MinDataProcessedForCache) {
+        if (this.dataBytesProcessed < MinDataProcessedForCache || isTabHandoverPending()) {
             return;
         }
         const serializedOutput = this.serializeAddon.serialize();

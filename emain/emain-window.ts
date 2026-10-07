@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ClientService, ObjectService, WindowService, WorkspaceService } from "@/app/store/services";
+import { getWindowTabIds } from "@/app/store/windowtabs";
 import { waveEventSubscribeSingle } from "@/app/store/wps";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { fireAndForget } from "@/util/util";
@@ -24,6 +25,7 @@ import { ElectronWshClient } from "./emain-wsh";
 import { updater } from "./updater";
 
 const DevInitDiagnosticMs = 5000;
+const TabHandoverTimeoutMs = 5000;
 
 export type WindowOpts = {
     unamePlatform: NodeJS.Platform;
@@ -148,6 +150,7 @@ export class WaveBrowserWindow extends BaseWindow {
     waveWindowId: string;
     workspaceId: string;
     isPopOut: boolean; // a popped-out window shows some tabs of its main window's workspace; never changes
+    handoverOutTabIds: Set<string>; // tabs this window is handing over to another window (its views stay until the target is ready)
     allLoadedTabViews: Map<string, WaveTabView>;
     activeTabView: WaveTabView;
     private canClose: boolean;
@@ -230,6 +233,7 @@ export class WaveBrowserWindow extends BaseWindow {
         this.waveWindowId = waveWindow.oid;
         this.workspaceId = waveWindow.workspaceid;
         this.isPopOut = waveWindow.ispopout ?? false;
+        this.handoverOutTabIds = new Set<string>();
         this.allLoadedTabViews = new Map<string, WaveTabView>();
         const winBoundsPoller = setInterval(() => {
             if (this.isDestroyed()) {
@@ -540,6 +544,9 @@ export class WaveBrowserWindow extends BaseWindow {
             tabView.webContents.send("wave-init", tabView.savedInitOpts); // reinit
             this.finalizePositioning();
         }
+        if (tabView.isWaveReady && this.activeTabView == tabView) {
+            notifyTabReady(this.waveWindowId, tabView.waveTabId);
+        }
 
         // something is causing the new tab to lose focus so it requires manual refocusing
         tabView.webContents.focus();
@@ -737,6 +744,30 @@ export class WaveBrowserWindow extends BaseWindow {
         return getWaveWindowById(ownerWindowId) ?? null;
     }
 
+    // make-before-break: the source keeps its view of the tab (read-only) until the target window is ready
+    beginTabHandoverOut(tabId: string) {
+        this.handoverOutTabIds.add(tabId);
+        this.sendTabHandoverState(tabId, "start");
+    }
+
+    // success: drop the source view; rollback: the source view takes the tab back
+    endTabHandoverOut(tabId: string, rolledBack: boolean) {
+        if (!this.handoverOutTabIds.delete(tabId)) {
+            return;
+        }
+        if (rolledBack) {
+            this.sendTabHandoverState(tabId, "rollback");
+        }
+    }
+
+    private sendTabHandoverState(tabId: string, state: "start" | "rollback") {
+        const tabView = this.allLoadedTabViews.get(tabId);
+        if (tabView == null || tabView.isDestroyed || tabView.webContents?.isDestroyed()) {
+            return;
+        }
+        tabView.webContents.send("tab-handover", state);
+    }
+
     destroy() {
         console.log("destroy win", this.waveWindowId);
         this.deleteAllowed = true;
@@ -744,12 +775,67 @@ export class WaveBrowserWindow extends BaseWindow {
     }
 }
 
+// windowId:tabId -> resolvers waiting for that window to show the tab with a ready renderer
+const tabReadyWaiters = new Map<string, ((ready: boolean) => void)[]>();
+
+function makeTabReadyKey(windowId: string, tabId: string): string {
+    return `${windowId}:${tabId}`;
+}
+
+function notifyTabReady(windowId: string, tabId: string) {
+    const key = makeTabReadyKey(windowId, tabId);
+    const waiters = tabReadyWaiters.get(key);
+    if (waiters == null) {
+        return;
+    }
+    tabReadyWaiters.delete(key);
+    for (const resolve of waiters) {
+        resolve(true);
+    }
+}
+
+// resolves true once windowId shows tabId with a wave-ready renderer, false after timeoutMs.
+// register before the window starts loading the tab.
+function waitForTabReady(windowId: string, tabId: string, timeoutMs: number): Promise<boolean> {
+    const ww = getWaveWindowById(windowId);
+    if (ww?.activeTabView?.waveTabId === tabId && ww.activeTabView.isWaveReady) {
+        return Promise.resolve(true);
+    }
+    return new Promise((resolve) => {
+        const key = makeTabReadyKey(windowId, tabId);
+        let done = false;
+        const finish = (ready: boolean) => {
+            if (done) {
+                return;
+            }
+            done = true;
+            clearTimeout(timeoutHandle);
+            const waiters = tabReadyWaiters.get(key)?.filter((w) => w !== finish);
+            if (waiters?.length) {
+                tabReadyWaiters.set(key, waiters);
+            } else {
+                tabReadyWaiters.delete(key);
+            }
+            resolve(ready);
+        };
+        const timeoutHandle = setTimeout(() => finish(false), timeoutMs);
+        tabReadyWaiters.set(key, [...(tabReadyWaiters.get(key) ?? []), finish]);
+    });
+}
+
+// during a handover two windows hold a view of the tab; the one taking it over wins
 export function getWaveWindowByTabId(tabId: string): WaveBrowserWindow {
+    let handingOver: WaveBrowserWindow = null;
     for (const ww of waveWindowMap.values()) {
-        if (ww.allLoadedTabViews.has(tabId)) {
+        if (!ww.allLoadedTabViews.has(tabId)) {
+            continue;
+        }
+        if (!ww.handoverOutTabIds.has(tabId)) {
             return ww;
         }
+        handingOver = ww;
     }
+    return handingOver;
 }
 
 export function getWaveWindowByWebContentsId(webContentsId: number): WaveBrowserWindow {
@@ -760,7 +846,7 @@ export function getWaveWindowByWebContentsId(webContentsId: number): WaveBrowser
     if (tabView == null) {
         return null;
     }
-    return getWaveWindowByTabId(tabView.waveTabId);
+    return getWaveWindowById(tabView.waveWindowId) ?? getWaveWindowByTabId(tabView.waveTabId);
 }
 
 export function getWaveWindowById(windowId: string): WaveBrowserWindow {
@@ -894,51 +980,207 @@ export function initPopOutWindowEventSubscriptions() {
     });
 }
 
-// moves a tab into a new popped-out window; the source drops its view first because the
-// tab-view cache is keyed by tab id and would otherwise hand the source's view to the new window
-export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
-    const bounds = srcWin.getBounds();
-    const rtn = await WindowService.PopOutTab(
-        tabId,
-        { x: bounds.x + 40, y: bounds.y + 40 },
-        { width: bounds.width, height: bounds.height }
-    );
-    if (rtn == null) {
-        return;
-    }
-    if (rtn.sourcenewactivetabid && srcWin.activeTabView?.waveTabId === tabId) {
-        await srcWin.setActiveTab(rtn.sourcenewactivetabid, false);
-    }
-    srcWin.removeTabView(tabId, true);
-    const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
-    const newWin = await createBrowserWindow(rtn.window, fullConfig, {
-        unamePlatform,
-        isPrimaryStartupWindow: false,
-    });
-    newWin.show();
+// index of tabId in the window's tab list (used to put a tab back on rollback)
+async function getTabIndexInWindow(ww: WaveBrowserWindow, tabId: string): Promise<number> {
+    const workspace = await WorkspaceService.GetWorkspace(ww.workspaceId);
+    return getWindowTabIds(workspace, ww.waveWindowId, ww.isPopOut).indexOf(tabId);
 }
 
-// moves a tab to another window of the same realm (destWin null = the realm's main window)
+// after the target is ready: the source drops its view, or closes when the tab was its last one
+async function completeTabHandover(
+    srcWin: WaveBrowserWindow,
+    tabId: string,
+    sourceNewActiveTabId: string,
+    closeSource: boolean
+) {
+    srcWin.endTabHandoverOut(tabId, false);
+    if (srcWin.isDestroyed()) {
+        return;
+    }
+    if (closeSource) {
+        // destroy() lets the closed handler call CloseWindow, which deletes the emptied popped-out window
+        srcWin.removeTabView(tabId, true);
+        srcWin.destroy();
+        return;
+    }
+    if (sourceNewActiveTabId && srcWin.activeTabView?.waveTabId === tabId) {
+        await srcWin.setActiveTab(sourceNewActiveTabId, false);
+    }
+    srcWin.removeTabView(tabId, true);
+}
+
+// the target did not get ready in time: move the tab back to the source, which still has its view.
+// returns false if the tab could not be moved back (it then stays in the target window).
+async function rollbackTabHandover(
+    srcWin: WaveBrowserWindow,
+    tabId: string,
+    srcIndex: number,
+    prevSrcActiveTabId: string,
+    targetWindowId: string
+): Promise<boolean> {
+    console.log("tab handover timed out, moving tab back", tabId, srcWin.waveWindowId, targetWindowId);
+    let rtn: TabWindowMoveRtn = null;
+    try {
+        rtn = await WindowService.MoveTabToWindow(tabId, srcWin.waveWindowId, srcIndex);
+    } catch (e) {
+        console.log("error moving tab back after handover timeout", tabId, e);
+    }
+    if (rtn == null) {
+        return false;
+    }
+    srcWin.endTabHandoverOut(tabId, true);
+    const targetWin = getWaveWindowById(targetWindowId);
+    if (rtn?.sourcewindowempty) {
+        if (targetWin != null && !targetWin.isDestroyed()) {
+            targetWin.destroy();
+        } else {
+            await WindowService.CloseWindow(targetWindowId, true);
+        }
+    } else if (targetWin != null && !targetWin.isDestroyed()) {
+        if (rtn?.sourcenewactivetabid && targetWin.activeTabView?.waveTabId === tabId) {
+            await targetWin.setActiveTab(rtn.sourcenewactivetabid, false);
+        }
+        targetWin.removeTabView(tabId, true);
+    }
+    if (srcWin.isDestroyed()) {
+        return true;
+    }
+    if (prevSrcActiveTabId && prevSrcActiveTabId !== tabId) {
+        await srcWin.setActiveTab(prevSrcActiveTabId, true);
+    } else {
+        await srcWin.setActiveTab(tabId, false);
+    }
+    return true;
+}
+
+type TabHandoverInfo = {
+    srcWin: WaveBrowserWindow;
+    tabId: string;
+    srcIndex: number;
+    prevSrcActiveTabId: string;
+    targetWindowId: string;
+    sourceNewActiveTabId: string;
+    closeSource: boolean;
+};
+
+// after the target got ready (or timed out): complete, roll back, or (if the move-back failed)
+// follow whatever window the backend now says owns the tab
+async function finishTabHandover(
+    info: TabHandoverInfo,
+    ready: boolean,
+    revealTarget: (target: WaveBrowserWindow) => void
+) {
+    const { srcWin, tabId } = info;
+    if (!ready) {
+        if (await rollbackTabHandover(srcWin, tabId, info.srcIndex, info.prevSrcActiveTabId, info.targetWindowId)) {
+            return;
+        }
+        let ownerWindowId: string = null;
+        try {
+            ownerWindowId = await getTabOwnerWindowId(srcWin.workspaceId, tabId);
+        } catch (e) {
+            console.log("error finding the owner of a handed-over tab", tabId, e);
+        }
+        if (ownerWindowId === srcWin.waveWindowId) {
+            srcWin.endTabHandoverOut(tabId, true);
+            return;
+        }
+    }
+    const targetWin = getWaveWindowById(info.targetWindowId);
+    if (targetWin != null && !targetWin.isDestroyed()) {
+        revealTarget(targetWin);
+    }
+    await completeTabHandover(srcWin, tabId, info.sourceNewActiveTabId, info.closeSource);
+}
+
+// moves a tab into a new popped-out window, make-before-break: the source keeps its view until the
+// new window's renderer is ready, and gets the tab back if that takes longer than TabHandoverTimeoutMs
+export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
+    if (srcWin.handoverOutTabIds.has(tabId)) {
+        return;
+    }
+    const srcIndex = await getTabIndexInWindow(srcWin, tabId);
+    const prevSrcActiveTabId = srcWin.activeTabView?.waveTabId;
+    const bounds = srcWin.getBounds();
+    srcWin.beginTabHandoverOut(tabId);
+    try {
+        let rtn: PopOutRtn = null;
+        try {
+            rtn = await WindowService.PopOutTab(
+                tabId,
+                { x: bounds.x + 40, y: bounds.y + 40 },
+                { width: bounds.width, height: bounds.height }
+            );
+        } catch (e) {
+            console.log("error popping out tab", tabId, e);
+        }
+        if (rtn == null) {
+            return;
+        }
+        const newWindowId = rtn.window.oid;
+        const readyPromise = waitForTabReady(newWindowId, tabId, TabHandoverTimeoutMs);
+        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+        const workspace = await WorkspaceService.GetWorkspace(rtn.window.workspaceid);
+        // built directly (not via createBrowserWindow, which waits for the tab) so a rollback can destroy it
+        const newWin = new WaveBrowserWindow(rtn.window, fullConfig, { unamePlatform, isPrimaryStartupWindow: false });
+        newWin.setTitle(getPopOutWindowTitle(workspace));
+        fireAndForget(() => newWin.setActiveTab(tabId, false));
+        const ready = await readyPromise;
+        const info: TabHandoverInfo = {
+            srcWin,
+            tabId,
+            srcIndex,
+            prevSrcActiveTabId,
+            targetWindowId: newWindowId,
+            sourceNewActiveTabId: rtn.sourcenewactivetabid,
+            closeSource: false,
+        };
+        await finishTabHandover(info, ready, (target) => target.show());
+    } finally {
+        // any path that did not complete the handover gives the tab back to the source view
+        srcWin.endTabHandoverOut(tabId, true);
+    }
+}
+
+// moves a tab to another window of the same realm, make-before-break (see popOutTab)
 export async function moveTabToWindow(srcWin: WaveBrowserWindow, tabId: string, destWin: WaveBrowserWindow) {
     if (destWin == null || destWin === srcWin || destWin.workspaceId !== srcWin.workspaceId) {
         console.log("moveTabToWindow: invalid destination window", tabId, destWin?.waveWindowId);
         return;
     }
-    const rtn = await WindowService.MoveTabToWindow(tabId, destWin.waveWindowId, -1);
-    if (rtn == null) {
+    if (srcWin.handoverOutTabIds.has(tabId)) {
         return;
     }
-    if (rtn.sourcewindowempty) {
-        srcWin.removeTabView(tabId, true);
-        srcWin.destroy();
-    } else {
-        if (rtn.sourcenewactivetabid && srcWin.activeTabView?.waveTabId === tabId) {
-            await srcWin.setActiveTab(rtn.sourcenewactivetabid, false);
+    const srcIndex = await getTabIndexInWindow(srcWin, tabId);
+    const prevSrcActiveTabId = srcWin.activeTabView?.waveTabId;
+    srcWin.beginTabHandoverOut(tabId);
+    try {
+        let rtn: TabWindowMoveRtn = null;
+        try {
+            rtn = await WindowService.MoveTabToWindow(tabId, destWin.waveWindowId, -1);
+        } catch (e) {
+            console.log("error moving tab to window", tabId, destWin.waveWindowId, e);
         }
-        srcWin.removeTabView(tabId, true);
+        if (rtn == null) {
+            return;
+        }
+        const readyPromise = waitForTabReady(destWin.waveWindowId, tabId, TabHandoverTimeoutMs);
+        fireAndForget(() => destWin.setActiveTab(tabId, false));
+        const ready = await readyPromise;
+        const info: TabHandoverInfo = {
+            srcWin,
+            tabId,
+            srcIndex,
+            prevSrcActiveTabId,
+            targetWindowId: destWin.waveWindowId,
+            sourceNewActiveTabId: rtn.sourcenewactivetabid,
+            closeSource: rtn.sourcewindowempty,
+        };
+        await finishTabHandover(info, ready, (target) => target.focus());
+    } finally {
+        // any path that did not complete the handover gives the tab back to the source view
+        srcWin.endTabHandoverOut(tabId, true);
     }
-    destWin.focus();
-    await destWin.setActiveTab(tabId, false);
 }
 
 ipcMain.on("popout-tab", (event, tabId: string) => {
@@ -1164,6 +1406,12 @@ export async function relaunchBrowserWindows() {
         const windowData: WaveWindow = windowDataMap.get(windowId);
         if (windowData == null) {
             console.log("relaunch -- window data not found, closing window", windowId);
+            await WindowService.CloseWindow(windowId, true);
+            continue;
+        }
+        if (windowData.ispopout) {
+            // like a restart, a relaunch folds popped-out windows back into their main window
+            console.log("relaunch -- folding popped-out window", windowId);
             await WindowService.CloseWindow(windowId, true);
             continue;
         }

@@ -470,7 +470,8 @@ func PopOutTab(ctx context.Context, tabId string, pos *waveobj.Point, size *wave
 
 // Moves a tab to another window of the same workspace. index is a position in the
 // destination window's tab list (-1 = end). A popped-out source window left without
-// tabs is deleted; the main window's only tab cannot be moved.
+// tabs is kept (SourceWindowEmpty) so the caller can close it once the destination has
+// loaded the tab, or move the tab back; the main window's only tab cannot be moved.
 func MoveTabToWindow(ctx context.Context, tabId string, destWindowId string, index int) (*TabWindowMoveRtn, error) {
 	rtn, err := wstore.WithTxRtn(ctx, func(tx *wstore.TxWrap) (*TabWindowMoveRtn, error) {
 		txCtx := tx.Context()
@@ -511,7 +512,7 @@ func MoveTabToWindow(ctx context.Context, tabId string, destWindowId string, ind
 		}
 		sourceActiveTabId := ""
 		if sourceEmpty {
-			if err := closePopOutWindowTx(txCtx, ws, sourceWindow.OID); err != nil {
+			if err := setWindowActiveTabTx(txCtx, ws, sourceWindow, ""); err != nil {
 				return nil, err
 			}
 		} else {

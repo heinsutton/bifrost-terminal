@@ -1,9 +1,10 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { FocusManager } from "@/app/store/focusManager";
 import { getSettingsKeyAtom } from "@/app/store/global";
 import { BlockService } from "@/app/store/services";
+import { isTabHandoverPending, onTabHandoverResume } from "@/app/store/tabhandover";
 import * as WOS from "@/app/store/wos";
 import { atomWithThrottle, boundNumber, fireAndForget } from "@/util/util";
 import { Atom, atom, Getter, PrimitiveAtom, Setter } from "jotai";
@@ -263,6 +264,7 @@ export class LayoutModel {
         this.animationTimeS = atom(animationTimeS ?? DefaultAnimationTimeS);
         this.persistDebounceTimer = null;
         this.processedActionIds = new Set();
+        onTabHandoverResume(() => this.onBackendUpdate());
 
         this.waveObjectAtom = getLayoutStateAtomFromTab(tabAtom, getter);
 
@@ -387,6 +389,10 @@ export class LayoutModel {
     }
 
     private async processPendingBackendActions() {
+        // a tab view handing its tab over to another window leaves backend actions to the target
+        if (isTabHandoverPending()) {
+            return;
+        }
         const waveObj = this.getter(this.waveObjectAtom);
         const actions = waveObj?.pendingbackendactions;
         if (!actions?.length) return;
@@ -599,6 +605,9 @@ export class LayoutModel {
         }
 
         this.persistDebounceTimer = setTimeout(() => {
+            this.persistDebounceTimer = null;
+            // a tab view handing its tab over to another window is read-only; the target's layout wins
+            if (isTabHandoverPending()) return;
             const waveObj = this.getter(this.waveObjectAtom);
             if (!waveObj) return;
 

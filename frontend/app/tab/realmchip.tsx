@@ -28,7 +28,7 @@ const RealmChip = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement> }
             placement="bottom"
             hideOnClick
             divRef={divRef}
-            divClassName="flex h-[22px] mb-1 mr-1 px-2 items-center gap-1.5 rounded-md box-border cursor-pointer bg-hover hover:bg-hoverbg transition-colors text-[12px] text-secondary hover:text-primary select-none"
+            divClassName="flex h-[22px] mb-1 mr-1 px-2 items-center gap-1.5 rounded-md box-border cursor-pointer bg-hover hover:bg-highlightbg transition-colors text-[12px] text-secondary hover:text-primary select-none"
             divStyle={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             divOnClick={() => env.electron.focusMainWindow()}
         >

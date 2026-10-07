@@ -146,6 +146,7 @@ declare global {
         popOutTab: (tabId: string) => void; // popout-tab
         moveTabToWindow: (tabId: string, destWindowId: string) => void; // move-tab-to-window (null destWindowId = main window)
         focusMainWindow: () => void; // focus-main-window
+        onTabHandover: (callback: (state: "start" | "rollback") => void) => void; // tab-handover
     };
 
     type ElectronContextMenuItem = {
