@@ -25,29 +25,29 @@ import (
 
 var WorkspaceColors = [...]string{
 	"#5EF3D6", // Mint (accent)
-	"#00FFDB", // Teal
-	"#429DFF", // Blue
-	"#BF55EC", // Purple
-	"#FF453A", // Red
-	"#FF9500", // Orange
-	"#FFE900", // Yellow
+	"#4da2ff", // Sky
+	"#b57bee", // Purple
+	"#7ee787", // Green
+	"#ffe066", // Yellow
+	"#ff9e64", // Ember
+	"#ff5370", // Red
 }
 
 var WorkspaceIcons = [...]string{
 	"rune@dagaz",
-	"triangle",
-	"star",
-	"heart",
-	"bolt",
-	"solid@cloud",
-	"moon",
-	"layer-group",
-	"rocket",
-	"flask",
-	"paperclip",
-	"chart-line",
-	"graduation-cap",
-	"mug-hot",
+	"rune@ansuz",
+	"rune@tiwaz",
+	"rune@sowilo",
+	"rune@othala",
+	"rune@raidho",
+	"rune@fehu",
+	"hammer-war",
+	"axe-battle",
+	"helmet-battle",
+	"shield-halved",
+	"crow",
+	"tree",
+	"ship",
 }
 
 func CreateWorkspace(ctx context.Context, name string, icon string, color string, applyDefaults bool, isInitialLaunch bool) (*waveobj.Workspace, error) {
@@ -86,7 +86,7 @@ func UpdateWorkspace(ctx context.Context, workspaceId string, name string, icon 
 		ws.Name = name
 		updated = true
 	} else if applyDefaults && ws.Name == "" {
-		ws.Name = fmt.Sprintf("New Workspace (%s)", ws.OID[0:5])
+		ws.Name = fmt.Sprintf("New Realm (%s)", ws.OID[0:5])
 		updated = true
 	}
 	if icon != "" {

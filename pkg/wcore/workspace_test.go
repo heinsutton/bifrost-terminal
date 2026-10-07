@@ -162,3 +162,23 @@ func TestListAllWorkspaces_IncludesUnsavedWithoutMutating(t *testing.T) {
 		t.Fatalf("ListAllWorkspaces must not disturb existing fields, got TabIds=%v", refetched.TabIds)
 	}
 }
+
+func TestRealmDefaultPools(t *testing.T) {
+	if len(WorkspaceIcons) != 14 {
+		t.Fatalf("expected 14 icons, got %d", len(WorkspaceIcons))
+	}
+	if WorkspaceIcons[0] != "rune@dagaz" {
+		t.Fatalf("expected first icon rune@dagaz, got %s", WorkspaceIcons[0])
+	}
+	for _, icon := range WorkspaceIcons {
+		if icon == "rune@algiz" {
+			t.Fatalf("rune@algiz must not be in the icon pool")
+		}
+	}
+	if len(WorkspaceColors) != 7 {
+		t.Fatalf("expected 7 colors, got %d", len(WorkspaceColors))
+	}
+	if WorkspaceColors[0] != "#5EF3D6" {
+		t.Fatalf("expected first color #5EF3D6, got %s", WorkspaceColors[0])
+	}
+}
