@@ -117,7 +117,7 @@ const MoveToTabConfirmModal = memo(({ blockId, destTabId }: { blockId: string; d
     };
     return (
         <Modal
-            className="message-modal"
+            className="pt-6 pb-4 px-5 min-w-[400px] max-w-[480px]"
             okLabel="Move"
             cancelLabel="Cancel"
             onOk={onOk}
@@ -127,7 +127,7 @@ const MoveToTabConfirmModal = memo(({ blockId, destTabId }: { blockId: string; d
             <div
                 ref={bodyRef}
                 tabIndex={0}
-                className="outline-none"
+                className="flex flex-col gap-2.5 mx-4 mb-4 outline-none"
                 onKeyDown={(e) => {
                     if (e.key === "Enter") {
                         e.preventDefault();
@@ -136,7 +136,11 @@ const MoveToTabConfirmModal = memo(({ blockId, destTabId }: { blockId: string; d
                     }
                 }}
             >
-                This is the only pane in this tab - the tab will be closed. Move anyway?
+                <div className="flex items-center gap-2 pr-10 font-bold text-primary">
+                    <i className="fa-sharp fa-solid fa-triangle-exclamation text-attention" />
+                    <span>Close this tab?</span>
+                </div>
+                <div className="text-secondary">This is the only pane in this tab. Moving it will close the tab.</div>
             </div>
         </Modal>
     );
