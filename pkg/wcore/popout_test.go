@@ -639,3 +639,61 @@ func TestMoveTabToWindow_RollbackIntoEmptiedPopOut(t *testing.T) {
 		t.Fatalf("rollback did not restore the tab: popout=%v active=%s", ws.PopOutTabs, window.ActiveTabId)
 	}
 }
+
+func TestMakeMovedBlockLayoutAction(t *testing.T) {
+	cases := []struct {
+		target, side, wantType, wantPos string
+	}{
+		{"t", PaneDropSide_Left, LayoutActionDataType_SplitHorizontal, "before"},
+		{"t", PaneDropSide_Right, LayoutActionDataType_SplitHorizontal, "after"},
+		{"t", PaneDropSide_Top, LayoutActionDataType_SplitVertical, "before"},
+		{"t", PaneDropSide_Bottom, LayoutActionDataType_SplitVertical, "after"},
+		{"", PaneDropSide_Left, LayoutActionDataType_Insert, ""},
+		{"t", "middle", LayoutActionDataType_Insert, ""},
+	}
+	for _, tc := range cases {
+		action := makeMovedBlockLayoutAction("b", tc.target, tc.side)
+		if action.ActionType != tc.wantType || action.Position != tc.wantPos || action.BlockId != "b" || !action.Focused {
+			t.Fatalf("%q/%q: got %+v", tc.target, tc.side, action)
+		}
+	}
+}
+
+func TestMoveBlockToTabAt_SplitsNextToTarget(t *testing.T) {
+	ctx := initPopOutTestStore(t)
+	fx := makePopOutFixture(t, ctx, 0, true)
+	srcTabId, srcBlocks := insertTestTab(t, ctx, 2)
+	destTabId, destBlocks := insertTestTab(t, ctx, 1)
+	ws := mustGetWorkspace(t, ctx, fx.wsId)
+	ws.TabIds = []string{srcTabId, destTabId}
+	ws.ActiveTabId = srcTabId
+	if err := wstore.DBUpdate(ctx, ws); err != nil {
+		t.Fatalf("failed to update workspace: %v", err)
+	}
+
+	rtn, err := MoveBlockToTabAt(ctx, srcBlocks[0], destTabId, destBlocks[0], PaneDropSide_Right)
+	if err != nil {
+		t.Fatalf("MoveBlockToTabAt failed: %v", err)
+	}
+	if rtn.DestTabId != destTabId || rtn.SourceTabEmpty {
+		t.Fatalf("unexpected rtn: %+v", rtn)
+	}
+	destTab, _ := wstore.DBMustGet[*waveobj.Tab](ctx, destTabId)
+	layout, err := wstore.DBMustGet[*waveobj.LayoutState](ctx, destTab.LayoutState)
+	if err != nil || layout.PendingBackendActions == nil || len(*layout.PendingBackendActions) != 1 {
+		t.Fatalf("unexpected pending layout actions: %+v, %v", layout, err)
+	}
+	action := (*layout.PendingBackendActions)[0]
+	if action.ActionType != LayoutActionDataType_SplitHorizontal || action.Position != "after" ||
+		action.TargetBlockId != destBlocks[0] || action.BlockId != srcBlocks[0] {
+		t.Fatalf("unexpected layout action: %+v", action)
+	}
+
+	if _, err := MoveBlockToTabAt(ctx, srcBlocks[1], destTabId, srcBlocks[0]+"-unknown", PaneDropSide_Left); err != nil {
+		t.Fatalf("MoveBlockToTabAt with unknown target failed: %v", err)
+	}
+	layout, _ = wstore.DBMustGet[*waveobj.LayoutState](ctx, destTab.LayoutState)
+	if last := (*layout.PendingBackendActions)[len(*layout.PendingBackendActions)-1]; last.ActionType != LayoutActionDataType_Insert {
+		t.Fatalf("unknown target should fall back to insert, got %+v", last)
+	}
+}

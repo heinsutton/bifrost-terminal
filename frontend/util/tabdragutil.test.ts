@@ -2,7 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { countCentersBefore, isTornOff, pickDropWindow, pointInRect, toClientPoint } from "./tabdragutil";
+import {
+    countCentersBefore,
+    getPaneDropSide,
+    isTornOff,
+    PaneDragMime,
+    PaneDragRealmMimePrefix,
+    PaneDragSoleMime,
+    parsePaneDragTypes,
+    pickDropWindow,
+    pointInRect,
+    toClientPoint,
+} from "./tabdragutil";
 
 describe("tabdragutil", () => {
     it("tests points against rects (right/bottom edges exclusive)", () => {
@@ -46,5 +57,22 @@ describe("tabdragutil", () => {
         expect(isTornOff({ x: 300, y: 80 }, bar, viewport)).toBe(true);
         expect(isTornOff({ x: 300, y: -5 }, bar, viewport)).toBe(true);
         expect(isTornOff({ x: 1200, y: 10 }, bar, viewport)).toBe(true);
+    });
+});
+
+describe("pane drag", () => {
+    it("reads pane identity from dataTransfer types", () => {
+        const types = [PaneDragMime, PaneDragRealmMimePrefix + "ws1", PaneDragSoleMime, "text/plain"];
+        expect(parsePaneDragTypes(types, "ws1")).toEqual({ isPane: true, sameRealm: true, isSolePane: true });
+        expect(parsePaneDragTypes(types, "ws2")).toEqual({ isPane: true, sameRealm: false, isSolePane: true });
+        expect(parsePaneDragTypes(["Files"], "ws1")).toEqual({ isPane: false, sameRealm: false, isSolePane: false });
+    });
+
+    it("picks the nearest edge as the drop side", () => {
+        const rect = { x: 100, y: 100, width: 200, height: 100 };
+        expect(getPaneDropSide(rect, { x: 110, y: 150 })).toBe("left");
+        expect(getPaneDropSide(rect, { x: 290, y: 150 })).toBe("right");
+        expect(getPaneDropSide(rect, { x: 200, y: 105 })).toBe("top");
+        expect(getPaneDropSide(rect, { x: 200, y: 195 })).toBe("bottom");
     });
 });

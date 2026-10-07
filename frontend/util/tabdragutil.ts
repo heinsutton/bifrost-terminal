@@ -58,3 +58,39 @@ export function isTornOff(point: DragPoint, barRect: DragRect, viewport: { width
         point.y > barRect.y + barRect.height + TabTearOffDistancePx
     );
 }
+
+// A pane dragged (HTML5, react-dnd) out of its window carries its identity in custom dataTransfer
+// types so other windows can tell, while hovering, whether they may accept it (data values are only
+// readable on drop).
+export const PaneDragMime = "application/x-bifrost-pane";
+export const PaneDragSoleMime = "application/x-bifrost-pane-sole";
+export const PaneDragRealmMimePrefix = "application/x-bifrost-realm-";
+
+export type PaneDragTypesInfo = { isPane: boolean; sameRealm: boolean; isSolePane: boolean };
+
+export function parsePaneDragTypes(types: readonly string[], workspaceId: string): PaneDragTypesInfo {
+    const typeList = Array.from(types ?? []);
+    const isPane = typeList.includes(PaneDragMime);
+    return {
+        isPane,
+        sameRealm:
+            isPane && workspaceId != null && typeList.includes(PaneDragRealmMimePrefix + workspaceId.toLowerCase()),
+        isSolePane: isPane && typeList.includes(PaneDragSoleMime),
+    };
+}
+
+export type PaneDropSide = "left" | "right" | "top" | "bottom";
+
+// the edge of rect nearest to point (a dropped pane splits that side)
+export function getPaneDropSide(rect: DragRect, point: DragPoint): PaneDropSide {
+    const fx = rect.width > 0 ? (point.x - rect.x) / rect.width : 0.5;
+    const fy = rect.height > 0 ? (point.y - rect.y) / rect.height : 0.5;
+    const distances: [PaneDropSide, number][] = [
+        ["left", fx],
+        ["right", 1 - fx],
+        ["top", fy],
+        ["bottom", 1 - fy],
+    ];
+    distances.sort((a, b) => a[1] - b[1]);
+    return distances[0][0];
+}

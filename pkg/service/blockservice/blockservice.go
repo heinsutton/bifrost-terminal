@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 package blockservice
@@ -87,6 +87,30 @@ func (bs *BlockService) MoveBlockToTab(ctx context.Context, blockId string, dest
 	go func() {
 		defer func() {
 			panichandler.PanicHandler("BlockService:MoveBlockToTab:SendUpdateEvents", recover())
+		}()
+		wps.Broker.SendUpdateEvents(updates)
+	}()
+	return rtn, updates, nil
+}
+
+func (*BlockService) MoveBlockToTabAt_Meta() tsgenmeta.MethodMeta {
+	return tsgenmeta.MethodMeta{
+		Desc:       "move a block to another tab of the same workspace, split next to targetBlockId on side (left/right/top/bottom)",
+		ArgNames:   []string{"ctx", "blockId", "destTabId", "targetBlockId", "side"},
+		ReturnDesc: "MoveBlockRtn",
+	}
+}
+
+func (bs *BlockService) MoveBlockToTabAt(ctx context.Context, blockId string, destTabId string, targetBlockId string, side string) (*wcore.MoveBlockRtn, waveobj.UpdatesRtnType, error) {
+	ctx = waveobj.ContextWithUpdates(ctx)
+	rtn, err := wcore.MoveBlockToTabAt(ctx, blockId, destTabId, targetBlockId, side)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error moving block to tab: %w", err)
+	}
+	updates := waveobj.ContextGetUpdatesRtn(ctx)
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("BlockService:MoveBlockToTabAt:SendUpdateEvents", recover())
 		}()
 		wps.Broker.SendUpdateEvents(updates)
 	}()

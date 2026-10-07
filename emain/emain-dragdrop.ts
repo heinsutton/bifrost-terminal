@@ -1,11 +1,12 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ObjectService } from "@/app/store/services";
+import { BlockService, ObjectService, WindowService } from "@/app/store/services";
 import { DropQueryResult, pickDropWindow, pointInRect, toClientPoint } from "@/util/tabdragutil";
 import { fireAndForget } from "@/util/util";
 import { BrowserWindow, ipcMain, screen, webContents } from "electron";
 import {
+    getTabOwnerWindowId,
     getWaveWindowById,
     getWaveWindowByWebContentsId,
     getWaveWindowsByFocusRecency,
@@ -13,8 +14,11 @@ import {
     moveTabToWindow,
     popOutTab,
     senderWindowOwnsTab,
+    showMovedPane,
     WaveBrowserWindow,
 } from "./emain-window";
+
+const PaneDropSides = ["left", "right", "top", "bottom"];
 
 const DropQueryTimeoutMs = 300;
 const DragFeedbackTickMs = 16;
@@ -260,7 +264,60 @@ async function handleTabDragEnd(srcWin: WaveBrowserWindow, tabId: string) {
     await popOutTab(srcWin, tabId, { x: point.x - TearOffWindowOffset.x, y: point.y - TearOffWindowOffset.y });
 }
 
+// a pane dragged from another window of the realm was dropped on targetWin: move it into destTabId
+// (null = a new tab in targetWin), split next to targetBlockId on side when given, then close an
+// emptied source tab and bring targetWin to the front
+async function handlePaneDrop(
+    targetWin: WaveBrowserWindow,
+    blockId: string,
+    destTabId: string,
+    targetBlockId: string,
+    side: string
+) {
+    const block = (await ObjectService.GetObject("block:" + blockId)) as Block;
+    const srcTabId = block?.parentoref?.startsWith("tab:") ? block.parentoref.substring(4) : null;
+    const srcWindowId = srcTabId != null ? await getTabOwnerWindowId(targetWin.workspaceId, srcTabId) : null;
+    const srcWin = getWaveWindowById(srcWindowId);
+    if (srcWin == null || srcWin === targetWin) {
+        console.log("pane-drop: pane is not in another window of the sender's realm", blockId);
+        return;
+    }
+    if (destTabId != null && !(await senderWindowOwnsTab(targetWin, destTabId))) {
+        console.log("pane-drop: destination tab is not shown in the sender window", destTabId);
+        return;
+    }
+    const srcTab = (await ObjectService.GetObject("tab:" + srcTabId)) as Tab;
+    const isSolePane = (srcTab?.blockids?.length ?? 0) <= 1;
+    if (isSolePane && !srcWin.isPopOut && (await getWindowTabCount(srcWin)) <= 1) {
+        console.log("pane-drop: the main window keeps its only tab's only pane", blockId);
+        return;
+    }
+    const dropSide = PaneDropSides.includes(side) && targetBlockId ? side : "";
+    let rtn: MoveBlockRtn;
+    if (destTabId == null) {
+        rtn = await BlockService.MoveBlockToTab(blockId, "");
+        await WindowService.MoveTabToWindow(rtn.desttabid, targetWin.waveWindowId, -1);
+    } else {
+        rtn = await BlockService.MoveBlockToTabAt(blockId, destTabId, dropSide ? targetBlockId : "", dropSide);
+    }
+    await showMovedPane(srcWin, rtn.desttabid, rtn.sourcetabempty ? rtn.sourcetabid : null);
+}
+
 export function initDragDropHandlers() {
+    ipcMain.on("pane-drop", (event, blockId: string, destTabId: string, targetBlockId: string, side: string) => {
+        fireAndForget(async () => {
+            const targetWin = getWaveWindowByWebContentsId(event.sender.id);
+            if (targetWin == null || !blockId) {
+                return;
+            }
+            try {
+                await handlePaneDrop(targetWin, blockId, destTabId || null, targetBlockId || null, side || null);
+            } catch (e) {
+                console.log("pane-drop: error moving pane", blockId, e);
+            }
+        });
+    });
+
     // the source renderer reports when a tab drag leaves its tab bar (outside=true) and when it comes back or ends
     ipcMain.on("tab-drag-feedback", (event, tabId: string, outside: boolean) => {
         if (!outside) {

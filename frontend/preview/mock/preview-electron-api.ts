@@ -66,6 +66,7 @@ const previewElectronApi: ElectronApi = {
     focusMainWindow: () => {},
     popOutBlock: (_blockId: string) => {},
     tabDragEnd: (_tabId: string) => {},
+    paneDrop: (_blockId: string, _destTabId: string, _targetBlockId: string, _side: string) => {},
     tabDragFeedback: (_tabId: string, _outside: boolean) => {},
     onDragHover: (_callback: (x: number, y: number) => void) => {},
     onDropQuery: (_callback: (reqId: string, x: number, y: number) => void) => {},

@@ -21,6 +21,14 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wstore"
 )
 
+// sides of a target pane a moved pane can be dropped on (MoveBlockToTabAt)
+const (
+	PaneDropSide_Left   = "left"
+	PaneDropSide_Right  = "right"
+	PaneDropSide_Top    = "top"
+	PaneDropSide_Bottom = "bottom"
+)
+
 func CreateSubBlock(ctx context.Context, blockId string, blockDef *waveobj.BlockDef) (*waveobj.Block, error) {
 	if blockDef == nil {
 		return nil, fmt.Errorf("blockDef is nil")
@@ -159,6 +167,31 @@ type MoveBlockRtn struct {
 // Re-parents a block to another tab of the same workspace without touching its controller or data.
 // destTabId == "" creates a new empty tab in the source tab's workspace.
 func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*MoveBlockRtn, error) {
+	return MoveBlockToTabAt(ctx, blockId, destTabId, "", "")
+}
+
+// the layout action that places a moved block in its destination tab: a split next to
+// targetBlockId on the given side, or (no target / unknown side) the default focused insert
+func makeMovedBlockLayoutAction(blockId string, targetBlockId string, side string) waveobj.LayoutActionData {
+	action := waveobj.LayoutActionData{BlockId: blockId, TargetBlockId: targetBlockId, Focused: true}
+	switch {
+	case targetBlockId != "" && side == PaneDropSide_Left:
+		action.ActionType, action.Position = LayoutActionDataType_SplitHorizontal, "before"
+	case targetBlockId != "" && side == PaneDropSide_Right:
+		action.ActionType, action.Position = LayoutActionDataType_SplitHorizontal, "after"
+	case targetBlockId != "" && side == PaneDropSide_Top:
+		action.ActionType, action.Position = LayoutActionDataType_SplitVertical, "before"
+	case targetBlockId != "" && side == PaneDropSide_Bottom:
+		action.ActionType, action.Position = LayoutActionDataType_SplitVertical, "after"
+	default:
+		action = waveobj.LayoutActionData{ActionType: LayoutActionDataType_Insert, BlockId: blockId, Focused: true}
+	}
+	return action
+}
+
+// MoveBlockToTab that drops the block next to targetBlockId (a block of destTabId) on side
+// (left/right/top/bottom). A target that is not in destTabId falls back to the default insert.
+func MoveBlockToTabAt(ctx context.Context, blockId string, destTabId string, targetBlockId string, side string) (*MoveBlockRtn, error) {
 	rtn, err := wstore.WithTxRtn(ctx, func(tx *wstore.TxWrap) (*MoveBlockRtn, error) {
 		txCtx := tx.Context()
 		block, err := wstore.DBGet[*waveobj.Block](txCtx, blockId)
@@ -208,6 +241,9 @@ func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*Mov
 				return nil, fmt.Errorf("destination tab not found: %q", destTabId)
 			}
 		}
+		if utilfn.FindStringInSlice(destTab.BlockIds, targetBlockId) == -1 {
+			targetBlockId = ""
+		}
 		block.ParentORef = waveobj.MakeORef(waveobj.OType_Tab, destTabId).String()
 		sourceTab.BlockIds = utilfn.RemoveElemFromSlice(sourceTab.BlockIds, blockId)
 		destTab.BlockIds = append(destTab.BlockIds, blockId)
@@ -225,11 +261,7 @@ func MoveBlockToTab(ctx context.Context, blockId string, destTabId string) (*Mov
 	if err != nil {
 		return nil, err
 	}
-	err = QueueLayoutActionForTab(ctx, rtn.DestTabId, waveobj.LayoutActionData{
-		ActionType: LayoutActionDataType_Insert,
-		BlockId:    blockId,
-		Focused:    true,
-	})
+	err = QueueLayoutActionForTab(ctx, rtn.DestTabId, makeMovedBlockLayoutAction(blockId, targetBlockId, side))
 	if err != nil {
 		return nil, fmt.Errorf("error queuing insert layout action: %w", err)
 	}

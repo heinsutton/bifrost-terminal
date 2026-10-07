@@ -105,14 +105,25 @@ const MoveToTabModal = memo(({ blockId }: { blockId: string }) => {
 });
 MoveToTabModal.displayName = "MoveToTabModal";
 
-const MoveToTabConfirmModal = memo(({ blockId, destTabId }: { blockId: string; destTabId: string }) => {
+type MoveToTabConfirmProps = {
+    blockId: string;
+    destTabId: string;
+    // set for a pane dropped in from another window: runs that move instead of moveBlockToTab
+    onConfirm?: () => void;
+};
+
+const MoveToTabConfirmModal = memo(({ blockId, destTabId, onConfirm }: MoveToTabConfirmProps) => {
     const bodyRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         bodyRef.current?.focus();
     }, []);
     const onOk = () => {
         modalsModel.popModal();
-        fireAndForget(() => moveBlockToTab(blockId, destTabId));
+        if (onConfirm != null) {
+            onConfirm();
+        } else {
+            fireAndForget(() => moveBlockToTab(blockId, destTabId));
+        }
         globalRefocusWithTimeout(50);
     };
     return (

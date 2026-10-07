@@ -1,7 +1,8 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { getSettingsKeyAtom } from "@/app/store/global";
+import { annotatePaneDragStart } from "@/app/store/panedrag";
 import clsx from "clsx";
 import { toPng } from "html-to-image";
 import { Atom, useAtomValue, useSetAtom } from "jotai";
@@ -299,6 +300,17 @@ const DisplayNode = ({ layoutModel, node }: DisplayNodeProps) => {
     useEffect(() => {
         drag(nodeModel.dragHandleRef);
     }, [drag, nodeModel.dragHandleRef.current]);
+
+    // tag the native drag so another window of the realm can accept the pane (see panedrag.ts)
+    useEffect(() => {
+        const handleElem = nodeModel.dragHandleRef.current;
+        if (handleElem == null) {
+            return;
+        }
+        const onDragStart = (event: DragEvent) => annotatePaneDragStart(event, node.data?.blockId);
+        handleElem.addEventListener("dragstart", onDragStart);
+        return () => handleElem.removeEventListener("dragstart", onDragStart);
+    }, [nodeModel.dragHandleRef.current, node.data?.blockId]);
 
     return (
         <div

@@ -15,6 +15,7 @@ import {
     registerGlobalKeys,
 } from "@/app/store/keymodel";
 import { modalsModel } from "@/app/store/modalmodel";
+import { registerPaneDropHandlers } from "@/app/store/panedrag";
 import { setTabHandoverState } from "@/app/store/tabhandover";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { makeBuilderRouteId, makeTabRouteId } from "@/app/store/wshrouter";
@@ -196,6 +197,7 @@ async function initWave(initOpts: WaveInitOpts) {
     registerElectronReinjectKeyHandler();
     registerControlShiftStateUpdateHandler();
     registerDropQueryHandler();
+    registerPaneDropHandlers();
     getApi().onTabHandover((state) => {
         setTabHandoverState(state);
         if (state === "rollback") {

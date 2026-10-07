@@ -148,6 +148,7 @@ declare global {
         focusMainWindow: () => void; // focus-main-window
         popOutBlock: (blockId: string) => void; // popout-block
         tabDragEnd: (tabId: string) => void; // tab-drag-end (a tab was dropped outside its tab bar)
+        paneDrop: (blockId: string, destTabId: string, targetBlockId: string, side: string) => void; // pane-drop (a pane from another window was dropped here; null destTabId = new tab)
         tabDragFeedback: (tabId: string, outside: boolean) => void; // tab-drag-feedback (drag left / returned to its tab bar)
         onDragHover: (callback: (x: number, y: number) => void) => void; // drag-hover (null x/y clears the drop hint)
         onDropQuery: (callback: (reqId: string, x: number, y: number) => void) => void; // drop-query

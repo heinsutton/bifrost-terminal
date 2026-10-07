@@ -1329,7 +1329,7 @@ export async function popOutBlock(srcWin: WaveBrowserWindow, blockId: string) {
 
 // after a pane moved to a tab of another window: close the emptied source tab without focusing
 // this window, then switch the destination window to that tab and bring it to the front
-async function showMovedPane(srcWin: WaveBrowserWindow, destTabId: string, closeSourceTabId: string) {
+export async function showMovedPane(srcWin: WaveBrowserWindow, destTabId: string, closeSourceTabId: string) {
     const destWindowId = await getTabOwnerWindowId(srcWin.workspaceId, destTabId);
     const destWin = getWaveWindowById(destWindowId);
     if (closeSourceTabId) {
