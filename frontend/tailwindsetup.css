@@ -126,3 +126,9 @@ svg [aria-label="tip"] g path {
         opacity: 0;
     }
 }
+
+/* while a tab is being dragged the cursor stays "grabbing" over the whole window */
+html.tab-dragging,
+html.tab-dragging * {
+    cursor: grabbing !important;
+}

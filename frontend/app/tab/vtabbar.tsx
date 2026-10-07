@@ -3,6 +3,7 @@
 
 import { Tooltip } from "@/app/element/tooltip";
 import { getTabBadgeAtom } from "@/app/store/badge";
+import { setTabDragCursor, tabDropHintAtom } from "@/app/store/dropquery";
 import { getTabModelByTabId } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -12,7 +13,7 @@ import { validateCssColor } from "@/util/color-validator";
 import { isTornOff } from "@/util/tabdragutil";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { RealmChip } from "./realmchip";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
@@ -214,6 +215,8 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const scrollSpeedRef = useRef<number>(0);
     const pointerDragCleanupRef = useRef<(() => void) | null>(null);
     const suppressClickRef = useRef(false);
+    const dropHintIndex = useAtomValue(tabDropHintAtom);
+    const [dropHintTop, setDropHintTop] = useState<number | null>(null);
 
     useEffect(() => {
         setOrderedTabIds(tabIds);
@@ -332,6 +335,18 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const reorderRef = useRef(reorder);
     reorderRef.current = reorder;
 
+    // insertion marker for a tab dragged in from another window
+    useLayoutEffect(() => {
+        if (dropHintIndex == null) {
+            setDropHintTop(null);
+            return;
+        }
+        const items = Array.from(scrollContainerRef.current?.querySelectorAll<HTMLElement>("[data-tabid]") ?? []);
+        const item = items[dropHintIndex];
+        const last = items[items.length - 1];
+        setDropHintTop(item != null ? item.offsetTop : last != null ? last.offsetTop + last.offsetHeight : 0);
+    }, [dropHintIndex, orderedTabIds]);
+
     // drop slot under clientY: before the first tab whose middle is below the pointer
     const computeDropTarget = (clientY: number): { index: number; lineTop: number } => {
         const items = Array.from(scrollContainerRef.current?.querySelectorAll<HTMLElement>("[data-tabid]") ?? []);
@@ -364,6 +379,10 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
             window.removeEventListener("keydown", onKeyDown, true);
             window.removeEventListener("blur", cancel);
             target.removeEventListener("lostpointercapture", cancel);
+            setTabDragCursor(false);
+            if (drag.tornOff) {
+                env.electron.tabDragFeedback(tabId, false);
+            }
             if (target.hasPointerCapture?.(pointerId)) {
                 target.releasePointerCapture(pointerId);
             }
@@ -398,11 +417,17 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                 didResetHoverForDragRef.current = false;
                 dragSourceRef.current = tabId;
                 setDragTabId(tabId);
+                setTabDragCursor(true);
             }
             const barRect = scrollContainerRef.current?.getBoundingClientRect();
             const barArea = { x: barRect?.left ?? 0, y: 0, width: barRect?.width ?? 0, height: window.innerHeight };
             const viewport = { width: window.innerWidth, height: window.innerHeight };
-            drag.tornOff = isTornOff({ x: e.clientX, y: e.clientY }, barArea, viewport);
+            const tornOff = isTornOff({ x: e.clientX, y: e.clientY }, barArea, viewport);
+            if (tornOff !== drag.tornOff) {
+                // away from the bar: emain shows a ghost chip at the cursor and drop hints in other windows
+                env.electron.tabDragFeedback(tabId, tornOff);
+            }
+            drag.tornOff = tornOff;
             if (drag.tornOff) {
                 drag.dropIndex = null;
                 setDropIndex(null);
@@ -510,6 +535,12 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                         />
                     );
                 })}
+                {dragTabId == null && dropHintTop != null && (
+                    <div
+                        className="pointer-events-none absolute left-0 right-0 border-t-2 border-accent/80"
+                        style={{ top: dropHintTop, transform: "translateY(-1px)" }}
+                    />
+                )}
                 {dragTabId != null && dropIndex != null && dropLineTop != null && (
                     <div
                         className="pointer-events-none absolute left-0 right-0 border-t-2 border-accent/80"

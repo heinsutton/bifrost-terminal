@@ -1,9 +1,10 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ObjectService } from "@/app/store/services";
 import { DropQueryResult, pickDropWindow, pointInRect, toClientPoint } from "@/util/tabdragutil";
 import { fireAndForget } from "@/util/util";
-import { ipcMain, screen } from "electron";
+import { BrowserWindow, ipcMain, screen, webContents } from "electron";
 import {
     getWaveWindowById,
     getWaveWindowByWebContentsId,
@@ -16,6 +17,11 @@ import {
 } from "./emain-window";
 
 const DropQueryTimeoutMs = 300;
+const DragFeedbackTickMs = 16;
+// hover hints are sent every other tick (~30 Hz)
+const DragHoverEveryTicks = 2;
+const GhostSize = { width: 240, height: 40 };
+const GhostCursorOffset = { x: 14, y: 10 };
 // the new window's top-left relative to the cursor, so the cursor lands on its tab bar
 const TearOffWindowOffset = { x: 80, y: 16 };
 
@@ -52,6 +58,184 @@ function queryDropTarget(targetWin: WaveBrowserWindow, screenPoint: Electron.Poi
     });
 }
 
+// the realm window (other than the source) under the point, or null for the desktop / another realm
+function findDropTargetWindow(srcWin: WaveBrowserWindow, point: Electron.Point): WaveBrowserWindow {
+    const candidates = getWaveWindowsByFocusRecency()
+        .filter((ww) => ww !== srcWin && !ww.isDestroyed())
+        .map((ww) => ({ id: ww.waveWindowId, bounds: ww.getBounds(), visible: ww.isVisible() && !ww.isMinimized() }));
+    const targetWin = getWaveWindowById(pickDropWindow(point, candidates));
+    if (targetWin == null || targetWin.workspaceId !== srcWin.workspaceId) {
+        return null;
+    }
+    return targetWin;
+}
+
+type TabDragFeedback = {
+    srcWin: WaveBrowserWindow;
+    tabId: string;
+    webContentsId: number;
+    ghost: BrowserWindow;
+    timer: NodeJS.Timeout;
+    tick: number;
+    hoverWin: WaveBrowserWindow;
+    hoverWebContentsId: number; // the tab view that shows the drop hint
+};
+
+// the drag currently shown outside its tab bar (ghost chip + drop hints); one at a time
+let activeFeedback: TabDragFeedback = null;
+// bumped on every feedback start/stop request; a start that finishes its awaits after a newer
+// request (e.g. the drag already ended) is dropped instead of leaving a ghost nothing stops
+let feedbackGeneration = 0;
+
+function escapeHtml(text: string): string {
+    return text.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+}
+
+function makeGhostHtml(tabName: string): string {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;background:transparent;overflow:hidden;font-family:system-ui,'Segoe UI',sans-serif;">
+<div style="display:inline-flex;align-items:center;gap:8px;height:30px;max-width:${GhostSize.width - 8}px;padding:0 12px;box-sizing:border-box;margin:2px;background:#171b26;border:1px solid rgba(94,243,214,0.5);border-radius:6px;color:#e2ecf5;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.45);">
+<span style="flex:none;width:8px;height:8px;border-radius:2px;background:#5ef3d6;"></span>
+<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(tabName)}</span>
+</div></body></html>`;
+}
+
+// a frameless, transparent, click-through window that never takes focus; it only shows the chip
+function createGhostWindow(tabName: string): BrowserWindow {
+    const ghost = new BrowserWindow({
+        width: GhostSize.width,
+        height: GhostSize.height,
+        frame: false,
+        transparent: true,
+        resizable: false,
+        movable: false,
+        minimizable: false,
+        maximizable: false,
+        focusable: false,
+        skipTaskbar: true,
+        alwaysOnTop: true,
+        hasShadow: false,
+        show: false,
+        webPreferences: { javascript: false, sandbox: true },
+    });
+    ghost.setIgnoreMouseEvents(true);
+    ghost.webContents.once("did-finish-load", () => {
+        if (!ghost.isDestroyed() && activeFeedback?.ghost === ghost) {
+            ghost.showInactive();
+        }
+    });
+    fireAndForget(() => ghost.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(makeGhostHtml(tabName))));
+    return ghost;
+}
+
+function clearDragHover(webContentsId: number) {
+    const wc = webContentsId != null ? webContents.fromId(webContentsId) : null;
+    if (wc != null && !wc.isDestroyed()) {
+        wc.send("drag-hover", null, null);
+    }
+}
+
+// returns the webContents id that now shows the hint (null if none)
+function sendDragHover(ww: WaveBrowserWindow, screenPoint: Electron.Point): number {
+    const wc = ww?.activeTabView?.webContents;
+    if (ww == null || ww.isDestroyed() || wc == null || wc.isDestroyed()) {
+        return null;
+    }
+    const clientPoint = toClientPoint(screenPoint, ww.getContentBounds(), wc.getZoomFactor());
+    wc.send("drag-hover", clientPoint.x, clientPoint.y);
+    return wc.id;
+}
+
+function tickTabDragFeedback() {
+    const feedback = activeFeedback;
+    if (feedback == null) {
+        return;
+    }
+    const srcWc = webContents.fromId(feedback.webContentsId);
+    if (feedback.srcWin.isDestroyed() || srcWc == null || srcWc.isDestroyed()) {
+        // the source tab view crashed or was destroyed: no end message will come
+        stopTabDragFeedback();
+        return;
+    }
+    const point = screen.getCursorScreenPoint();
+    if (!feedback.ghost.isDestroyed()) {
+        feedback.ghost.setPosition(
+            Math.round(point.x + GhostCursorOffset.x),
+            Math.round(point.y + GhostCursorOffset.y)
+        );
+    }
+    feedback.tick++;
+    if (feedback.tick % DragHoverEveryTicks !== 0) {
+        return;
+    }
+    const hoverWin = pointInRect(point, feedback.srcWin.getBounds())
+        ? null
+        : findDropTargetWindow(feedback.srcWin, point);
+    feedback.hoverWin = hoverWin;
+    const hoverWebContentsId = sendDragHover(hoverWin, point);
+    if (hoverWebContentsId !== feedback.hoverWebContentsId) {
+        // left that window, or it switched to another tab view
+        clearDragHover(feedback.hoverWebContentsId);
+        feedback.hoverWebContentsId = hoverWebContentsId;
+    }
+}
+
+async function startTabDragFeedback(srcWin: WaveBrowserWindow, tabId: string, webContentsId: number) {
+    const generation = ++feedbackGeneration;
+    if (activeFeedback?.tabId === tabId && activeFeedback.webContentsId === webContentsId) {
+        return;
+    }
+    stopTabDragFeedback();
+    if (!(await senderWindowOwnsTab(srcWin, tabId))) {
+        console.log("tab-drag-feedback: tab is not shown in the sender window", tabId, srcWin?.waveWindowId);
+        return;
+    }
+    let tabName = "";
+    try {
+        tabName = ((await ObjectService.GetObject("tab:" + tabId)) as Tab)?.name ?? "";
+    } catch (e) {
+        console.log("tab drag feedback: error getting tab name", tabId, e);
+    }
+    if (generation !== feedbackGeneration || activeFeedback != null || srcWin.isDestroyed()) {
+        return;
+    }
+    activeFeedback = {
+        srcWin,
+        tabId,
+        webContentsId,
+        ghost: createGhostWindow(tabName || "Tab"),
+        timer: setInterval(tickTabDragFeedback, DragFeedbackTickMs),
+        tick: 0,
+        hoverWin: null,
+        hoverWebContentsId: null,
+    };
+    tickTabDragFeedback();
+}
+
+// destroys the ghost window too: a hidden BrowserWindow would keep window-all-closed from firing
+function stopTabDragFeedback() {
+    const feedback = activeFeedback;
+    if (feedback == null) {
+        return;
+    }
+    activeFeedback = null;
+    clearInterval(feedback.timer);
+    clearDragHover(feedback.hoverWebContentsId);
+    if (!feedback.ghost.isDestroyed()) {
+        feedback.ghost.destroy();
+    }
+}
+
+// the sender's drag returned to its bar or ended: cancel a start still in flight and stop the feedback.
+// Only the sender's own drag is affected (another view's message never stops it).
+function endTabDragFeedback(senderWebContentsId: number) {
+    if (activeFeedback != null && activeFeedback.webContentsId !== senderWebContentsId) {
+        return;
+    }
+    feedbackGeneration++;
+    stopTabDragFeedback();
+}
+
 // a tab was released outside its own tab bar: dock it in the realm window under the cursor
 // (at the tab bar position, or at the end when dropped on content), or tear it off into a new
 // popped-out window at the cursor. Dropping back on the source window does nothing.
@@ -60,11 +244,8 @@ async function handleTabDragEnd(srcWin: WaveBrowserWindow, tabId: string) {
     if (pointInRect(point, srcWin.getBounds())) {
         return;
     }
-    const candidates = getWaveWindowsByFocusRecency()
-        .filter((ww) => ww !== srcWin && !ww.isDestroyed())
-        .map((ww) => ({ id: ww.waveWindowId, bounds: ww.getBounds(), visible: ww.isVisible() && !ww.isMinimized() }));
-    const targetWin = getWaveWindowById(pickDropWindow(point, candidates));
-    if (targetWin != null && targetWin.workspaceId === srcWin.workspaceId) {
+    const targetWin = findDropTargetWindow(srcWin, point);
+    if (targetWin != null) {
         const result = await queryDropTarget(targetWin, point);
         const index = result.area === "tabbar" && result.tabIndex != null ? result.tabIndex : -1;
         console.log("tab-drag-end: docking tab", tabId, "into window", targetWin.waveWindowId, "at", index);
@@ -80,7 +261,18 @@ async function handleTabDragEnd(srcWin: WaveBrowserWindow, tabId: string) {
 }
 
 export function initDragDropHandlers() {
+    // the source renderer reports when a tab drag leaves its tab bar (outside=true) and when it comes back or ends
+    ipcMain.on("tab-drag-feedback", (event, tabId: string, outside: boolean) => {
+        if (!outside) {
+            endTabDragFeedback(event.sender.id);
+            return;
+        }
+        const srcWin = getWaveWindowByWebContentsId(event.sender.id);
+        fireAndForget(() => startTabDragFeedback(srcWin, tabId, event.sender.id));
+    });
+
     ipcMain.on("tab-drag-end", (event, tabId: string) => {
+        endTabDragFeedback(event.sender.id);
         fireAndForget(async () => {
             const srcWin = getWaveWindowByWebContentsId(event.sender.id);
             if (!(await senderWindowOwnsTab(srcWin, tabId))) {

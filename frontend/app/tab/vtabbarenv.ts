@@ -16,6 +16,7 @@ export type VTabBarEnv = WaveEnvSubset<{
         moveTabToWindow: WaveEnv["electron"]["moveTabToWindow"];
         focusMainWindow: WaveEnv["electron"]["focusMainWindow"];
         tabDragEnd: WaveEnv["electron"]["tabDragEnd"];
+        tabDragFeedback: WaveEnv["electron"]["tabDragFeedback"];
     };
     rpc: {
         UpdateWorkspaceTabIdsCommand: WaveEnv["rpc"]["UpdateWorkspaceTabIdsCommand"];

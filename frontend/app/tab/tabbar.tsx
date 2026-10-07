@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Tooltip } from "@/app/element/tooltip";
+import { setTabDragCursor, tabDropHintAtom } from "@/app/store/dropquery";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
@@ -119,6 +120,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         initialOffsetX: null,
         totalScrollOffset: null,
         dragged: false,
+        tornOff: false,
     });
     const osInstanceRef = useRef<OverlayScrollbars>(null);
     const draggerLeftRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
     const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
+    const dropHintIndex = useAtomValue(tabDropHintAtom);
     const windowTabIds = useAtomValue(env.atoms.windowTabIds);
     const isPopOutWindow = useAtomValue(env.atoms.isPopOutWindow);
     const hideAiButton = hideAiButtonSetting || isPopOutWindow;
@@ -388,6 +391,22 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         currentX = event.clientX - initialOffsetX - totalScrollOffset;
 
         setDraggingTab((prev) => (prev !== tabId ? tabId : prev));
+        setTabDragCursor(true);
+
+        // away from the bar: emain shows a ghost chip at the cursor and drop hints in other windows
+        const wrapperRect = tabbarWrapperRef.current?.getBoundingClientRect();
+        if (wrapperRect != null) {
+            const tornOff = isTornOff(
+                { x: event.clientX, y: event.clientY },
+                { x: 0, y: wrapperRect.top, width: window.innerWidth, height: wrapperRect.height },
+                { width: window.innerWidth, height: window.innerHeight }
+            );
+            if (tornOff !== draggingTabDataRef.current.tornOff) {
+                draggingTabDataRef.current.tornOff = tornOff;
+                ref.current.style.opacity = tornOff ? "0.5" : "1";
+                env.electron.tabDragFeedback(tabId, tornOff);
+            }
+        }
 
         // Check if the tab has moved 5 pixels
         if (Math.abs(currentX - tabStartX) >= 50) {
@@ -469,6 +488,11 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         document.removeEventListener("keydown", handleDragKeyDown, true);
         window.removeEventListener("blur", restoreDraggedTab);
         draggingRemovedRef.current = false;
+        setTabDragCursor(false);
+        if (draggingTabDataRef.current.tornOff) {
+            draggingTabDataRef.current.tornOff = false;
+            env.electron.tabDragFeedback(draggingTabDataRef.current.tabId, false);
+        }
     };
 
     // puts the dragged tab back where the drag started (Esc, or the tab was dropped outside the bar)
@@ -555,6 +579,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                     initialOffsetX: null,
                     totalScrollOffset: 0,
                     dragged: false,
+                    tornOff: false,
                 };
 
                 document.addEventListener("mousemove", handleMouseMove);
@@ -698,6 +723,12 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                         ...(noTabs ? ({ WebkitAppRegion: "drag" } as React.CSSProperties) : {}),
                     }}
                 >
+                    {!noTabs && dropHintIndex != null && (
+                        <div
+                            className="pointer-events-none absolute top-0.5 bottom-0.5 z-10 w-0.5 rounded-full bg-accent"
+                            style={{ left: Math.max(0, dropHintIndex * tabWidthRef.current - 1) }}
+                        />
+                    )}
                     {!noTabs &&
                         tabIds.map((tabId, index) => {
                             const isActive = activeTabId === tabId;
