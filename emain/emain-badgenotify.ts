@@ -18,6 +18,9 @@ const KindPhrases: Record<BadgeKind, string> = {
 
 const badgeMirror = new Map<string, Badge>();
 const liveNotifications = new Set<Notification>();
+let seeding = false;
+let seedClearedAll = false;
+const seedTouched = new Set<string>();
 
 function isLookingAtTab(tabId: string): boolean {
     return getAllWaveWindows().some(
@@ -43,11 +46,11 @@ async function resolveBadgeContext(oref: string): Promise<{ tabId: string; block
         if (block == null) {
             return null;
         }
-        if (blockId == null) {
-            blockId = oid;
-            const title = block.meta?.["frame:title"]?.trim();
-            paneName = title ? title : null;
+        const title = block.meta?.["frame:title"]?.trim();
+        if (paneName == null && title) {
+            paneName = title;
         }
+        blockId = oid;
         if (!block.parentoref) {
             return null;
         }
@@ -100,10 +103,16 @@ function handleBadgeEvent(data: BadgeEvent) {
     }
     if (data.clearall) {
         badgeMirror.clear();
+        if (seeding) {
+            seedClearedAll = true;
+        }
         return;
     }
     if (data.oref == null) {
         return;
+    }
+    if (seeding) {
+        seedTouched.add(data.oref);
     }
     if (data.clearbyid) {
         if (badgeMirror.get(data.oref)?.badgeid === data.clearbyid) {
@@ -132,11 +141,21 @@ export function initBadgeNotifications() {
         handler: (event) => handleBadgeEvent(event.data as BadgeEvent),
     });
     fireAndForget(async () => {
-        const badges = await RpcApi.GetAllBadgesCommand(ElectronWshClient);
-        for (const badgeEvent of badges ?? []) {
-            if (badgeEvent.oref != null && badgeEvent.badge != null && !badgeMirror.has(badgeEvent.oref)) {
-                badgeMirror.set(badgeEvent.oref, badgeEvent.badge);
+        seeding = true;
+        try {
+            const badges = await RpcApi.GetAllBadgesCommand(ElectronWshClient);
+            for (const badgeEvent of badges ?? []) {
+                if (seedClearedAll || badgeEvent.oref == null || badgeEvent.badge == null) {
+                    continue;
+                }
+                if (!seedTouched.has(badgeEvent.oref) && !badgeMirror.has(badgeEvent.oref)) {
+                    badgeMirror.set(badgeEvent.oref, badgeEvent.badge);
+                }
             }
+        } finally {
+            seeding = false;
+            seedClearedAll = false;
+            seedTouched.clear();
         }
     });
 }
