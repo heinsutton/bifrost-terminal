@@ -146,6 +146,8 @@ declare global {
         popOutTab: (tabId: string) => void; // popout-tab
         moveTabToWindow: (tabId: string, destWindowId: string) => void; // move-tab-to-window (null destWindowId = main window)
         focusMainWindow: () => void; // focus-main-window
+        popOutBlock: (blockId: string) => void; // popout-block
+        showMovedPane: (destTabId: string, closeSourceTabId: string) => void; // show-moved-pane (null closeSourceTabId = keep the source tab)
         onTabHandover: (callback: (state: "start" | "rollback") => void) => void; // tab-handover
     };
 

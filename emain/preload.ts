@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld("api", {
     moveTabToWindow: (tabId: string, destWindowId: string) =>
         ipcRenderer.send("move-tab-to-window", tabId, destWindowId),
     focusMainWindow: () => ipcRenderer.send("focus-main-window"),
+    popOutBlock: (blockId: string) => ipcRenderer.send("popout-block", blockId),
+    showMovedPane: (destTabId: string, closeSourceTabId: string) =>
+        ipcRenderer.send("show-moved-pane", destTabId, closeSourceTabId),
     onTabHandover: (callback) => ipcRenderer.on("tab-handover", (_event, state) => callback(state)),
     setWindowInitStatus: (status) => ipcRenderer.send("set-window-init-status", status),
     onWaveInit: (callback) => ipcRenderer.on("wave-init", (_event, initOpts) => callback(initOpts)),

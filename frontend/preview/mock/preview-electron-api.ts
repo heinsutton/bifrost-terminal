@@ -64,6 +64,8 @@ const previewElectronApi: ElectronApi = {
     popOutTab: (_tabId: string) => {},
     moveTabToWindow: (_tabId: string, _destWindowId: string) => {},
     focusMainWindow: () => {},
+    popOutBlock: (_blockId: string) => {},
+    showMovedPane: (_destTabId: string, _closeSourceTabId: string) => {},
     onTabHandover: (_callback: (state: "start" | "rollback") => void) => {},
 };
 

@@ -137,6 +137,7 @@ type WindowActionQueueEntry =
     | {
           op: "closetab";
           tabId: string;
+          noFocus?: boolean; // don't focus the next active tab (another window is being brought to the front)
       }
     | {
           op: "switchworkspace";
@@ -589,8 +590,8 @@ export class WaveBrowserWindow extends BaseWindow {
         await this._queueActionInternal({ op: "createtab" });
     }
 
-    async queueCloseTab(tabId: string) {
-        await this._queueActionInternal({ op: "closetab", tabId });
+    async queueCloseTab(tabId: string, noFocus = false) {
+        await this._queueActionInternal({ op: "closetab", tabId, noFocus });
     }
 
     private async _queueActionInternal(entry: WindowActionQueueEntry) {
@@ -694,7 +695,8 @@ export class WaveBrowserWindow extends BaseWindow {
                 }
                 const [tabView, tabInitialized] = await getOrCreateWebViewForTab(this.waveWindowId, tabId);
                 const primaryStartupTabFlag = entry.op === "switchtab" ? (entry.primaryStartupTab ?? false) : false;
-                const noFocusFlag = entry.op === "switchtab" ? (entry.noFocus ?? false) : false;
+                const noFocusFlag =
+                    entry.op === "switchtab" || entry.op === "closetab" ? (entry.noFocus ?? false) : false;
                 await this.setTabViewIntoWindow(tabView, tabInitialized, primaryStartupTabFlag, noFocusFlag);
             } catch (e) {
                 console.log("error caught in processActionQueue", e);
@@ -1249,6 +1251,90 @@ ipcMain.on("move-tab-to-window", (event, tabId: string, destWindowId: string) =>
         }
         const destWin = destWindowId ? getWaveWindowById(destWindowId) : getMainWaveWindowByWorkspaceId(ww.workspaceId);
         await moveTabToWindow(ww, tabId, destWin);
+    });
+});
+
+// pane Pop Out: the pane moves into a new tab of a new popped-out window. Nothing else shows that tab,
+// so there is no handover; the new window is brought to the front once its tab is ready (or after the timeout).
+export async function popOutBlock(srcWin: WaveBrowserWindow, blockId: string) {
+    const bounds = srcWin.getBounds();
+    const rtn = await WindowService.PopOutBlock(
+        blockId,
+        { x: bounds.x + 40, y: bounds.y + 40 },
+        { width: bounds.width, height: bounds.height }
+    );
+    if (rtn?.window == null) {
+        return;
+    }
+    const newTabId = rtn.window.activetabid;
+    const readyPromise = waitForTabReady(rtn.window.oid, newTabId, TabHandoverTimeoutMs);
+    let newWin: WaveBrowserWindow = null;
+    try {
+        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+        const workspace = await WorkspaceService.GetWorkspace(rtn.window.workspaceid);
+        newWin = new WaveBrowserWindow(rtn.window, fullConfig, { unamePlatform, isPrimaryStartupWindow: false });
+        newWin.setTitle(getPopOutWindowTitle(workspace));
+    } catch (e) {
+        // the backend already created the window: delete it, which returns the pane's new tab to the main window
+        console.log("error creating popped-out window for pane", rtn.window.oid, e);
+        await WindowService.CloseWindow(rtn.window.oid, true);
+        const mainWin = getMainWaveWindowByWorkspaceId(srcWin.workspaceId);
+        if (mainWin != null && !mainWin.isDestroyed()) {
+            bringWindowToFront(mainWin);
+        }
+        return;
+    }
+    fireAndForget(() => newWin.setActiveTab(newTabId, false));
+    await readyPromise;
+    if (!newWin.isDestroyed()) {
+        bringWindowToFront(newWin);
+    }
+}
+
+// after a pane moved to a tab of another window: close the emptied source tab without focusing
+// this window, then switch the destination window to that tab and bring it to the front
+async function showMovedPane(srcWin: WaveBrowserWindow, destTabId: string, closeSourceTabId: string) {
+    const destWindowId = await getTabOwnerWindowId(srcWin.workspaceId, destTabId);
+    const destWin = getWaveWindowById(destWindowId);
+    if (closeSourceTabId) {
+        await srcWin.queueCloseTab(closeSourceTabId, destWin != null && destWin !== srcWin);
+    }
+    if (destWin == null || destWin.isDestroyed()) {
+        return;
+    }
+    const readyPromise = waitForTabReady(destWin.waveWindowId, destTabId, TabHandoverTimeoutMs);
+    fireAndForget(() => destWin.setActiveTab(destTabId, false));
+    await readyPromise;
+    if (!destWin.isDestroyed()) {
+        bringWindowToFront(destWin);
+    }
+}
+
+ipcMain.on("popout-block", (event, blockId: string) => {
+    fireAndForget(async () => {
+        const ww = getWaveWindowByWebContentsId(event.sender.id);
+        const block = blockId ? ((await ObjectService.GetObject("block:" + blockId)) as Block) : null;
+        const parentTabId = block?.parentoref?.startsWith("tab:") ? block.parentoref.substring(4) : null;
+        if (!(await senderWindowOwnsTab(ww, parentTabId))) {
+            console.log("popout-block: pane is not in a tab of the sender window", blockId, ww?.waveWindowId);
+            return;
+        }
+        await popOutBlock(ww, blockId);
+    });
+});
+
+ipcMain.on("show-moved-pane", (event, destTabId: string, closeSourceTabId: string) => {
+    fireAndForget(async () => {
+        const ww = getWaveWindowByWebContentsId(event.sender.id);
+        if (ww == null || (await getTabOwnerWindowId(ww.workspaceId, destTabId)) == null) {
+            console.log("show-moved-pane: destination tab is not in the sender's realm", destTabId, ww?.waveWindowId);
+            return;
+        }
+        if (closeSourceTabId && !(await senderWindowOwnsTab(ww, closeSourceTabId))) {
+            console.log("show-moved-pane: source tab is not shown in the sender window", closeSourceTabId);
+            return;
+        }
+        await showMovedPane(ww, destTabId, closeSourceTabId);
     });
 });
 

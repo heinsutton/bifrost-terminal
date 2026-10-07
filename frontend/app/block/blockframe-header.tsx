@@ -11,7 +11,7 @@ import {
 import { ConnectionButton } from "@/app/block/connectionbutton";
 import { DurableSessionFlyover } from "@/app/block/durable-session-flyover";
 import { getBlockBadgeAtom } from "@/app/store/badge";
-import { getMoveToTabMenuItems } from "@/app/store/blockmove";
+import { getPaneMoveMenuItems } from "@/app/store/blockmove";
 import {
     createBlockSplitHorizontally,
     createBlockSplitVertically,
@@ -112,7 +112,7 @@ function handleHeaderContextMenu(
                 nodeModel.toggleMagnify();
             },
         },
-        ...getMoveToTabMenuItems(blockId),
+        ...getPaneMoveMenuItems(blockId),
         { type: "separator" },
         {
             label: "Rename Block",

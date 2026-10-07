@@ -3,7 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { BlockNodeModel } from "@/app/block/blocktypes";
-import { getMoveToTabMenuItems } from "@/app/store/blockmove";
+import { getPaneMoveMenuItems } from "@/app/store/blockmove";
 import { appHandleKeyDown } from "@/app/store/keymodel";
 import { modalsModel } from "@/app/store/modalmodel";
 import type { TabModel } from "@/app/store/tab-model";
@@ -909,7 +909,7 @@ export class TermViewModel implements ViewModel {
             },
         });
 
-        menu.push(...getMoveToTabMenuItems(this.blockId));
+        menu.push(...getPaneMoveMenuItems(this.blockId));
 
         menu.push({ type: "separator" });
 
