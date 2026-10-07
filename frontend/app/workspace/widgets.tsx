@@ -256,6 +256,7 @@ const AppsFloatingWindow = memo(({ isOpen, onClose, referenceElement }: Floating
 const SettingsFloatingWindow = memo(
     ({ isOpen, onClose, referenceElement, hasConfigErrors }: FloatingWindowPropsType) => {
         const env = useWaveEnv<WidgetsEnv>();
+        const fullConfig = useAtomValue(env.atoms.fullConfigAtom);
         const { refs, floatingStyles, context } = useFloating({
             open: isOpen,
             onOpenChange: onClose,
@@ -360,6 +361,17 @@ const SettingsFloatingWindow = memo(
                             )}
                         </div>
                     ))}
+                    <div className="border-t border-border mt-1 pt-1">
+                        <div
+                            className="px-3 py-1 rounded text-xs text-muted whitespace-nowrap cursor-pointer hover:bg-hoverbg hover:text-secondary transition-colors"
+                            onClick={() => {
+                                modalsModel.pushModal("AboutModal");
+                                onClose();
+                            }}
+                        >
+                            Bifrost v{fullConfig?.version ?? ""}
+                        </div>
+                    </div>
                 </div>
             </FloatingPortal>
         );

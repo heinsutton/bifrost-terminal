@@ -202,3 +202,12 @@ Also when adding content to the end of files prefer to use the new append_file t
 
 No need to run a `go build` or a `go run` to just check if the Go code compiles. VSCode's errors/problems cover this well.
 If there are no Go errors in VSCode you can assume the code compiles fine.
+
+### Versioning
+
+Semver `MAJOR.MINOR.PATCH`. The version lives in `package.json` (`version`) and the root entries of `package-lock.json` (lines 3 and 9); `version.cjs` reads it and feeds the Go ldflags and electron-builder.
+
+- Every release (a packaged build/install the user deploys) bumps PATCH: 1.0.3 -> 1.0.4.
+- A release with a major new feature bumps MINOR and resets PATCH: 1.0.x -> 1.1.0.
+- MAJOR changes only when the user says so.
+- Bump before building the release, in one commit: run `npm version <patch|minor|major> --no-git-tag-version` (updates `package.json` and `package-lock.json` together; `node version.cjs <patch|minor|major>` only updates `package.json`), then commit both files.
