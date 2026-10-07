@@ -615,7 +615,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             )}
             <WaveAIButton divRef={waveAIButtonRef} />
             <Tooltip
-                content="Workspace Switcher"
+                content="Realm Switcher"
                 placement="bottom"
                 hideOnClick
                 divRef={workspaceSwitcherRef}

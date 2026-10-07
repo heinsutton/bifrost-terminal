@@ -48,7 +48,7 @@ async function getWorkspaceMenu(ww?: WaveBrowserWindow): Promise<Electron.MenuIt
     const workspaceList = await RpcApi.WorkspaceListCommand(ElectronWshClient);
     const workspaceMenu: Electron.MenuItemConstructorOptions[] = [
         {
-            label: "Create Workspace",
+            label: "Create Realm",
             click: (_, window) => fireAndForget(() => createWorkspace((window as WaveBrowserWindow) ?? ww)),
         },
     ];
@@ -364,7 +364,7 @@ async function makeFullAppMenu(callbacks: AppMenuCallbacks, workspaceOrBuilderId
     ];
     if (workspaceMenu != null && !isBuilderWindowFocused) {
         menuTemplate.push({
-            label: "Workspace",
+            label: "Realm",
             id: "workspace-menu",
             submenu: workspaceMenu,
         });

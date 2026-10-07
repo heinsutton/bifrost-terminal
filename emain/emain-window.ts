@@ -845,9 +845,9 @@ ipcMain.on("delete-workspace", (event, workspaceId) => {
 
         const choice = dialog.showMessageBoxSync(this, {
             type: "question",
-            buttons: ["Cancel", "Delete Workspace"],
+            buttons: ["Cancel", "Delete Realm"],
             title: "Confirm",
-            message: `Deleting workspace will also delete its contents.\n\nContinue?`,
+            message: `Deleting realm will also delete its contents.\n\nContinue?`,
         });
         if (choice === 0) {
             console.log("user cancelled workspace delete", workspaceId, ww?.waveWindowId);
