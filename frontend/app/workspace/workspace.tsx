@@ -56,7 +56,7 @@ const WidgetsSlot = memo(({ visible }: { visible: boolean }) => {
             aria-hidden={!visible}
             inert={!visible}
             className={cn(
-                "flex flex-col shrink-0 overflow-hidden",
+                "flex flex-row shrink-0 overflow-hidden",
                 animate && "transition-[width,margin-left,visibility] ease-out motion-reduce:transition-none"
             )}
             style={{
