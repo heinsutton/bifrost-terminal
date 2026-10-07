@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { contextBridge, ipcRenderer, Rectangle, webUtils, WebviewTag } from "electron";
@@ -55,6 +55,10 @@ contextBridge.exposeInMainWorld("api", {
     setActiveTab: (tabId) => ipcRenderer.send("set-active-tab", tabId),
     createTab: () => ipcRenderer.send("create-tab"),
     closeTab: (workspaceId, tabId, confirmClose) => ipcRenderer.invoke("close-tab", workspaceId, tabId, confirmClose),
+    popOutTab: (tabId: string) => ipcRenderer.send("popout-tab", tabId),
+    moveTabToWindow: (tabId: string, destWindowId: string) =>
+        ipcRenderer.send("move-tab-to-window", tabId, destWindowId),
+    focusMainWindow: () => ipcRenderer.send("focus-main-window"),
     setWindowInitStatus: (status) => ipcRenderer.send("set-window-init-status", status),
     onWaveInit: (callback) => ipcRenderer.on("wave-init", (_event, initOpts) => callback(initOpts)),
     onBuilderInit: (callback) => ipcRenderer.on("builder-init", (_event, initOpts) => callback(initOpts)),

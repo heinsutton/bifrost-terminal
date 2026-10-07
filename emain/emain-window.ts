@@ -147,6 +147,7 @@ function isNonEmptyUnsavedWorkspace(workspace: Workspace): boolean {
 export class WaveBrowserWindow extends BaseWindow {
     waveWindowId: string;
     workspaceId: string;
+    isPopOut: boolean; // a popped-out window shows some tabs of its main window's workspace; never changes
     allLoadedTabViews: Map<string, WaveTabView>;
     activeTabView: WaveTabView;
     private canClose: boolean;
@@ -228,6 +229,7 @@ export class WaveBrowserWindow extends BaseWindow {
         this.actionQueue = [];
         this.waveWindowId = waveWindow.oid;
         this.workspaceId = waveWindow.workspaceid;
+        this.isPopOut = waveWindow.ispopout ?? false;
         this.allLoadedTabViews = new Map<string, WaveTabView>();
         const winBoundsPoller = setInterval(() => {
             if (this.isDestroyed()) {
@@ -306,8 +308,19 @@ export class WaveBrowserWindow extends BaseWindow {
                 return;
             }
             e.preventDefault();
+            if (this.isPopOut) {
+                // the backend returns a popped-out window's tabs to the main window, so no confirm is needed
+                this.deleteAllowed = true;
+                this.canClose = true;
+                setTimeout(() => {
+                    if (!this.isDestroyed()) {
+                        this.close();
+                    }
+                }, 0);
+                return;
+            }
             fireAndForget(async () => {
-                const numWindows = waveWindowMap.size;
+                const numWindows = getAllWaveWindows().filter((ww) => !ww.isPopOut).length;
                 const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
                 if (numWindows > 1 || !fullConfig.settings["window:savelastwindow"]) {
                     if (fullConfig.settings["window:confirmclose"]) {
@@ -326,6 +339,9 @@ export class WaveBrowserWindow extends BaseWindow {
                         }
                     }
                     this.deleteAllowed = true;
+                }
+                for (const popOutWin of getPopOutWaveWindows(this.workspaceId)) {
+                    popOutWin.destroy();
                 }
                 this.canClose = true;
                 this.close();
@@ -389,6 +405,13 @@ export class WaveBrowserWindow extends BaseWindow {
 
     async switchWorkspace(workspaceId: string) {
         console.log("switchWorkspace", workspaceId, this.waveWindowId);
+        if (this.isPopOut) {
+            const mainWin = getMainWaveWindowByWorkspaceId(this.workspaceId);
+            console.log("switchWorkspace from popped-out window, delegating to main window", mainWin?.waveWindowId);
+            mainWin?.focus();
+            await mainWin?.switchWorkspace(workspaceId);
+            return;
+        }
         if (workspaceId == this.workspaceId) {
             console.log("switchWorkspace already on this workspace", this.waveWindowId);
             return;
@@ -433,6 +456,7 @@ export class WaveBrowserWindow extends BaseWindow {
             clientId: clientId,
             windowId: this.waveWindowId,
             activate: true,
+            isPopOut: this.isPopOut,
         };
         if (primaryStartupTab) {
             initOpts.primaryTabStartup = true;
@@ -586,17 +610,29 @@ export class WaveBrowserWindow extends BaseWindow {
                 // have to use "===" here to get the typechecker to work :/
                 switch (entry.op) {
                     case "createtab":
-                        tabId = await WorkspaceService.CreateTab(this.workspaceId, null, true);
+                        if (this.isPopOut) {
+                            tabId = await WindowService.CreateTabInWindow(this.waveWindowId);
+                        } else {
+                            tabId = await WorkspaceService.CreateTab(this.workspaceId, null, true);
+                        }
                         break;
-                    case "switchtab":
+                    case "switchtab": {
                         tabId = entry.tabId;
                         if (this.activeTabView?.waveTabId == tabId) {
+                            continue;
+                        }
+                        const ownerWin = await this.findOtherOwnerWindow(tabId);
+                        if (ownerWin != null) {
+                            console.log("switchtab: tab is shown in another window", tabId, ownerWin.waveWindowId);
+                            ownerWin.focus();
+                            fireAndForget(() => ownerWin.setActiveTab(tabId, entry.setInBackend));
                             continue;
                         }
                         if (entry.setInBackend) {
                             await WorkspaceService.SetActiveTab(this.workspaceId, tabId);
                         }
                         break;
+                    }
                     case "closetab": {
                         tabId = entry.tabId;
                         const rtn = await WorkspaceService.CloseTab(this.workspaceId, tabId, true);
@@ -611,7 +647,10 @@ export class WaveBrowserWindow extends BaseWindow {
                         }
                         this.removeTabViewLater(tabId, 1000);
                         if (rtn.closewindow) {
-                            this.close();
+                            // the backend may already have closed a popped-out window (electron:closewindow)
+                            if (!this.isDestroyed()) {
+                                this.close();
+                            }
                             return;
                         }
                         if (!rtn.newactivetabid) {
@@ -675,9 +714,27 @@ export class WaveBrowserWindow extends BaseWindow {
             // the tab was never loaded, so just return
             return;
         }
-        this.contentView.removeChildView(tabView);
+        if (!this.isDestroyed()) {
+            this.contentView.removeChildView(tabView);
+        }
         this.allLoadedTabViews.delete(tabId);
+        if (this.activeTabView == tabView) {
+            this.activeTabView = null;
+        }
         tabView.destroy();
+    }
+
+    // returns the other window of this realm that shows tabId, or null if this window owns it.
+    // only asks the backend while the realm has popped-out windows.
+    private async findOtherOwnerWindow(tabId: string): Promise<WaveBrowserWindow> {
+        if (!this.isPopOut && getPopOutWaveWindows(this.workspaceId).length === 0) {
+            return null;
+        }
+        const ownerWindowId = await getTabOwnerWindowId(this.workspaceId, tabId);
+        if (ownerWindowId == null || ownerWindowId === this.waveWindowId) {
+            return null;
+        }
+        return getWaveWindowById(ownerWindowId) ?? null;
     }
 
     destroy() {
@@ -710,12 +767,39 @@ export function getWaveWindowById(windowId: string): WaveBrowserWindow {
     return waveWindowMap.get(windowId);
 }
 
-export function getWaveWindowByWorkspaceId(workspaceId: string): WaveBrowserWindow {
+// the realm's main window; popped-out windows are never returned
+export function getMainWaveWindowByWorkspaceId(workspaceId: string): WaveBrowserWindow {
     for (const waveWindow of waveWindowMap.values()) {
-        if (waveWindow.workspaceId === workspaceId) {
+        if (waveWindow.workspaceId === workspaceId && !waveWindow.isPopOut) {
             return waveWindow;
         }
     }
+}
+
+export function getPopOutWaveWindows(workspaceId: string): WaveBrowserWindow[] {
+    return getAllWaveWindows().filter((ww) => ww.isPopOut && ww.workspaceId === workspaceId);
+}
+
+// returns the id of the window that shows tabId (a popped-out window or the realm's main window);
+// null if the tab is not in the workspace
+async function getTabOwnerWindowId(workspaceId: string, tabId: string): Promise<string> {
+    const workspace = await WorkspaceService.GetWorkspace(workspaceId);
+    if (workspace == null || !workspace.tabids?.includes(tabId)) {
+        return null;
+    }
+    const popOutWindowId = workspace.popouttabs?.[tabId];
+    if (popOutWindowId) {
+        return popOutWindowId;
+    }
+    return getMainWaveWindowByWorkspaceId(workspaceId)?.waveWindowId ?? null;
+}
+
+async function senderWindowOwnsTab(ww: WaveBrowserWindow, tabId: string): Promise<boolean> {
+    if (ww == null || !tabId) {
+        return false;
+    }
+    const ownerWindowId = await getTabOwnerWindowId(ww.workspaceId, tabId);
+    return ownerWindowId === ww.waveWindowId;
 }
 
 export function getAllWaveWindows(): WaveBrowserWindow[] {
@@ -738,7 +822,7 @@ export async function createWindowForWorkspace(workspaceId: string) {
 async function createWindowOnLastWorkspace(): Promise<WaveWindow> {
     const clientData = await ClientService.GetClientData();
     const lastWorkspaceId = clientData?.lastworkspaceid;
-    if (lastWorkspaceId && getWaveWindowByWorkspaceId(lastWorkspaceId) == null) {
+    if (lastWorkspaceId && getMainWaveWindowByWorkspaceId(lastWorkspaceId) == null) {
         try {
             const lastWorkspace = await WorkspaceService.GetWorkspace(lastWorkspaceId);
             if (lastWorkspace != null) {
@@ -772,11 +856,124 @@ export async function createBrowserWindow(
     console.log("createBrowserWindow", waveWindow.oid, workspace.oid, workspace);
     const bwin = new WaveBrowserWindow(waveWindow, fullConfig, opts);
 
-    if (workspace.activetabid) {
+    if (bwin.isPopOut) {
+        bwin.setTitle(getPopOutWindowTitle(workspace));
+        if (waveWindow.activetabid) {
+            await bwin.setActiveTab(waveWindow.activetabid, false);
+        }
+    } else if (workspace.activetabid) {
         await bwin.setActiveTab(workspace.activetabid, false, opts.isPrimaryStartupWindow ?? false);
     }
     return bwin;
 }
+
+function getPopOutWindowTitle(workspace: Workspace): string {
+    return `${workspace?.name || "Bifrost Terminal"} ↗`;
+}
+
+async function updatePopOutWindowTitles() {
+    const workspaceIds = new Set(
+        getAllWaveWindows()
+            .filter((ww) => ww.isPopOut)
+            .map((ww) => ww.workspaceId)
+    );
+    for (const workspaceId of workspaceIds) {
+        const workspace = await WorkspaceService.GetWorkspace(workspaceId);
+        for (const ww of getPopOutWaveWindows(workspaceId)) {
+            if (!ww.isDestroyed()) {
+                ww.setTitle(getPopOutWindowTitle(workspace));
+            }
+        }
+    }
+}
+
+export function initPopOutWindowEventSubscriptions() {
+    waveEventSubscribeSingle({
+        eventType: "workspace:update",
+        handler: () => fireAndForget(updatePopOutWindowTitles),
+    });
+}
+
+// moves a tab into a new popped-out window; the source drops its view first because the
+// tab-view cache is keyed by tab id and would otherwise hand the source's view to the new window
+export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
+    const bounds = srcWin.getBounds();
+    const rtn = await WindowService.PopOutTab(
+        tabId,
+        { x: bounds.x + 40, y: bounds.y + 40 },
+        { width: bounds.width, height: bounds.height }
+    );
+    if (rtn == null) {
+        return;
+    }
+    if (rtn.sourcenewactivetabid && srcWin.activeTabView?.waveTabId === tabId) {
+        await srcWin.setActiveTab(rtn.sourcenewactivetabid, false);
+    }
+    srcWin.removeTabView(tabId, true);
+    const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+    const newWin = await createBrowserWindow(rtn.window, fullConfig, {
+        unamePlatform,
+        isPrimaryStartupWindow: false,
+    });
+    newWin.show();
+}
+
+// moves a tab to another window of the same realm (destWin null = the realm's main window)
+export async function moveTabToWindow(srcWin: WaveBrowserWindow, tabId: string, destWin: WaveBrowserWindow) {
+    if (destWin == null || destWin === srcWin || destWin.workspaceId !== srcWin.workspaceId) {
+        console.log("moveTabToWindow: invalid destination window", tabId, destWin?.waveWindowId);
+        return;
+    }
+    const rtn = await WindowService.MoveTabToWindow(tabId, destWin.waveWindowId, -1);
+    if (rtn == null) {
+        return;
+    }
+    if (rtn.sourcewindowempty) {
+        srcWin.removeTabView(tabId, true);
+        srcWin.destroy();
+    } else {
+        if (rtn.sourcenewactivetabid && srcWin.activeTabView?.waveTabId === tabId) {
+            await srcWin.setActiveTab(rtn.sourcenewactivetabid, false);
+        }
+        srcWin.removeTabView(tabId, true);
+    }
+    destWin.focus();
+    await destWin.setActiveTab(tabId, false);
+}
+
+ipcMain.on("popout-tab", (event, tabId: string) => {
+    fireAndForget(async () => {
+        const ww = getWaveWindowByWebContentsId(event.sender.id);
+        if (!(await senderWindowOwnsTab(ww, tabId))) {
+            console.log("popout-tab: tab is not shown in the sender window", tabId, ww?.waveWindowId);
+            return;
+        }
+        await popOutTab(ww, tabId);
+    });
+});
+
+ipcMain.on("move-tab-to-window", (event, tabId: string, destWindowId: string) => {
+    fireAndForget(async () => {
+        const ww = getWaveWindowByWebContentsId(event.sender.id);
+        if (!(await senderWindowOwnsTab(ww, tabId))) {
+            console.log("move-tab-to-window: tab is not shown in the sender window", tabId, ww?.waveWindowId);
+            return;
+        }
+        const destWin = destWindowId ? getWaveWindowById(destWindowId) : getMainWaveWindowByWorkspaceId(ww.workspaceId);
+        await moveTabToWindow(ww, tabId, destWin);
+    });
+});
+
+ipcMain.on("focus-main-window", (event) => {
+    const ww = getWaveWindowByWebContentsId(event.sender.id);
+    if (ww == null) {
+        return;
+    }
+    const mainWin = getMainWaveWindowByWorkspaceId(ww.workspaceId);
+    if (mainWin != null && !mainWin.isDestroyed()) {
+        mainWin.focus();
+    }
+});
 
 ipcMain.on("set-active-tab", async (event, tabId) => {
     const ww = getWaveWindowByWebContentsId(event.sender.id);
@@ -802,7 +999,14 @@ ipcMain.on("set-waveai-open", (event, isOpen: boolean) => {
 });
 
 ipcMain.handle("close-tab", async (event, workspaceId: string, tabId: string, confirmClose: boolean) => {
-    const ww = getWaveWindowByWorkspaceId(workspaceId);
+    let ww = getWaveWindowByWebContentsId(event.sender.id);
+    if (ww == null || ww.workspaceId !== workspaceId) {
+        ww = getMainWaveWindowByWorkspaceId(workspaceId);
+    }
+    if (ww != null && getPopOutWaveWindows(workspaceId).length > 0) {
+        const ownerWindowId = await getTabOwnerWindowId(workspaceId, tabId);
+        ww = getWaveWindowById(ownerWindowId) ?? ww;
+    }
     if (ww == null) {
         console.log(`close-tab: no window found for workspace ws=${workspaceId} tab=${tabId}`);
         return false;
@@ -853,7 +1057,7 @@ ipcMain.on("create-workspace", (event) => {
 
 ipcMain.on("delete-workspace", (event, workspaceId) => {
     fireAndForget(async () => {
-        const ww = getWaveWindowByWebContentsId(event.sender.id);
+        let ww = getWaveWindowByWebContentsId(event.sender.id);
         console.log("delete-workspace", workspaceId, ww?.waveWindowId);
 
         const workspaceList = await WorkspaceService.ListWorkspaces();
@@ -873,6 +1077,10 @@ ipcMain.on("delete-workspace", (event, workspaceId) => {
 
         const newWorkspaceId = await WorkspaceService.DeleteWorkspace(workspaceId);
         console.log("delete-workspace done", workspaceId, ww?.waveWindowId);
+        if (ww?.isPopOut) {
+            // the backend folded (closed) the popped-out windows; the main window follows the deletion
+            ww = getMainWaveWindowByWorkspaceId(ww.workspaceId);
+        }
         if (ww?.workspaceId == workspaceId) {
             if (newWorkspaceId) {
                 await ww.switchWorkspace(newWorkspaceId);
@@ -893,8 +1101,14 @@ export async function createNewWaveWindow() {
     if (allWindows.length === 0 && clientData?.windowids?.length >= 1) {
         console.log("no windows, but clientData has windowids, recreating first window");
         // reopen the first window
-        const existingWindowId = clientData.windowids[0];
-        const existingWindowData = (await ObjectService.GetObject("window:" + existingWindowId)) as WaveWindow;
+        let existingWindowData: WaveWindow = null;
+        for (const existingWindowId of clientData.windowids) {
+            const windowData = (await ObjectService.GetObject("window:" + existingWindowId)) as WaveWindow;
+            if (windowData != null && !windowData.ispopout) {
+                existingWindowData = windowData;
+                break;
+            }
+        }
         if (existingWindowData != null) {
             const win = await createBrowserWindow(existingWindowData, fullConfig, {
                 unamePlatform,
@@ -941,9 +1155,13 @@ export async function relaunchBrowserWindows() {
     const windowIds = clientData.windowids ?? [];
     const wins: WaveBrowserWindow[] = [];
     const isFirstRelaunch = !hasCompletedFirstRelaunch;
-    const primaryWindowId = windowIds.length > 0 ? windowIds[0] : null;
+    const windowDataMap = new Map<string, WaveWindow>();
+    for (const windowId of windowIds) {
+        windowDataMap.set(windowId, await WindowService.GetWindow(windowId));
+    }
+    const primaryWindowId = windowIds.find((id) => windowDataMap.get(id) != null && !windowDataMap.get(id).ispopout);
     for (const windowId of windowIds.slice().reverse()) {
-        const windowData: WaveWindow = await WindowService.GetWindow(windowId);
+        const windowData: WaveWindow = windowDataMap.get(windowId);
         if (windowData == null) {
             console.log("relaunch -- window data not found, closing window", windowId);
             await WindowService.CloseWindow(windowId, true);

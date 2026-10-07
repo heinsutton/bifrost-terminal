@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { NewInstallOnboardingModal } from "@/app/onboarding/onboarding";
@@ -18,6 +18,7 @@ const ModalsRenderer = () => {
     const [newInstallOnboardingOpen, setNewInstallOnboardingOpen] = jotai.useAtom(modalsModel.newInstallOnboardingOpen);
     const [upgradeOnboardingOpen, setUpgradeOnboardingOpen] = jotai.useAtom(modalsModel.upgradeOnboardingOpen);
     const [modals] = jotai.useAtom(modalsModel.modalsAtom);
+    const isPopOutWindow = jotai.useAtomValue(atoms.isPopOutWindow);
     const rtn: React.ReactElement[] = [];
     for (const modal of modals) {
         const ModalComponent = getModalComponent(modal.displayName);
@@ -25,20 +26,23 @@ const ModalsRenderer = () => {
             rtn.push(<ModalComponent key={modal.displayName} {...modal.props} />);
         }
     }
-    if (newInstallOnboardingOpen) {
+    if (newInstallOnboardingOpen && !isPopOutWindow) {
         rtn.push(<NewInstallOnboardingModal key={NewInstallOnboardingModal.displayName} />);
     }
-    if (upgradeOnboardingOpen) {
+    if (upgradeOnboardingOpen && !isPopOutWindow) {
         rtn.push(<UpgradeOnboardingModal key={UpgradeOnboardingModal.displayName} />);
     }
     useEffect(() => {
+        if (isPopOutWindow) {
+            return;
+        }
         if (!clientData.tosagreed) {
             setNewInstallOnboardingOpen(true);
         }
     }, [clientData]);
 
     useEffect(() => {
-        if (!globalPrimaryTabStartup) {
+        if (!globalPrimaryTabStartup || isPopOutWindow) {
             return;
         }
         if (!clientData.tosagreed) {

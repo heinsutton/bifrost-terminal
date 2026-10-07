@@ -73,7 +73,41 @@ const WidgetsSlot = memo(({ visible }: { visible: boolean }) => {
 });
 WidgetsSlot.displayName = "WidgetsSlot";
 
-const WorkspaceElem = memo(() => {
+// a popped-out window shows only its tab bar and panes: no Wave AI panel and no widgets sidebar
+const PopOutWorkspaceElem = memo(() => {
+    const tabId = useAtomValue(atoms.staticTabId);
+    const ws = useAtomValue(atoms.workspace);
+    const tabBarPosition = useAtomValue(getSettingsKeyAtom("app:tabbar")) ?? "top";
+    const showLeftTabBar = tabBarPosition === "left";
+    const vtabWidth = WorkspaceLayoutModel.getInstance().getVTabWidth();
+
+    return (
+        <div className="flex flex-col w-full flex-grow overflow-hidden">
+            {!(showLeftTabBar && isMacOS()) && <TabBar key={ws.oid} workspace={ws} noTabs={showLeftTabBar} />}
+            {showLeftTabBar && isMacOS() && <MacOSTabBarSpacer />}
+            <div className="flex flex-row flex-grow overflow-hidden">
+                <ErrorBoundary key={tabId}>
+                    {showLeftTabBar && (
+                        <div className="h-full shrink-0 overflow-hidden pr-0.5" style={{ width: vtabWidth }}>
+                            <VTabBar workspace={ws} />
+                        </div>
+                    )}
+                    <div className="flex flex-row h-full flex-grow overflow-hidden">
+                        {tabId === "" ? (
+                            <CenteredDiv>No Active Tab</CenteredDiv>
+                        ) : (
+                            <TabContent key={tabId} tabId={tabId} noTopPadding={showLeftTabBar && isMacOS()} />
+                        )}
+                    </div>
+                    <ModalsRenderer />
+                </ErrorBoundary>
+            </div>
+        </div>
+    );
+});
+PopOutWorkspaceElem.displayName = "PopOutWorkspaceElem";
+
+const MainWorkspaceElem = memo(() => {
     const workspaceLayoutModel = WorkspaceLayoutModel.getInstance();
     const tabId = useAtomValue(atoms.staticTabId);
     const ws = useAtomValue(atoms.workspace);
@@ -203,6 +237,16 @@ const WorkspaceElem = memo(() => {
             </div>
         </div>
     );
+});
+
+MainWorkspaceElem.displayName = "MainWorkspaceElem";
+
+const WorkspaceElem = memo(() => {
+    const isPopOutWindow = useAtomValue(atoms.isPopOutWindow);
+    if (isPopOutWindow) {
+        return <PopOutWorkspaceElem />;
+    }
+    return <MainWorkspaceElem />;
 });
 
 WorkspaceElem.displayName = "WorkspaceElem";

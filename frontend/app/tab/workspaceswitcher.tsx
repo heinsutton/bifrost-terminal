@@ -34,6 +34,7 @@ export type WorkspaceSwitcherEnv = WaveEnvSubset<{
     };
     atoms: {
         workspace: WaveEnv["atoms"]["workspace"];
+        popOutWindowCount: WaveEnv["atoms"]["popOutWindowCount"];
     };
     services: {
         workspace: WaveEnv["services"]["workspace"];
@@ -166,6 +167,7 @@ const WorkspaceSwitcherItem = ({
     const activeWorkspace = useAtomValueSafe(env.atoms.workspace);
     const [workspaceEntry, setWorkspaceEntry] = useAtom(entryAtom);
     const [editingWorkspace, setEditingWorkspace] = useAtom(editingWorkspaceAtom);
+    const popOutWindowCount = useAtomValue(env.atoms.popOutWindowCount);
 
     const workspace = workspaceEntry.workspace;
     const isCurrentWorkspace = activeWorkspace.oid === workspace.oid;
@@ -239,6 +241,14 @@ const WorkspaceSwitcherItem = ({
                         <div className="icons">
                             <IconButton decl={editIconDecl} />
                             {isActive && <IconButton decl={windowIconDecl} />}
+                            {isCurrentWorkspace && popOutWindowCount > 0 && (
+                                <span
+                                    className="text-[11px] text-secondary whitespace-nowrap"
+                                    title={`${popOutWindowCount} popped-out window${popOutWindowCount > 1 ? "s" : ""}`}
+                                >
+                                    ↗ {popOutWindowCount}
+                                </span>
+                            )}
                         </div>
                     </ExpandableMenuItemRightElement>
                 </div>

@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { App } from "@/app/app";
@@ -151,6 +151,7 @@ async function initWave(initOpts: WaveInitOpts) {
         platform,
         environment: "renderer",
         primaryTabStartup: initOpts.primaryTabStartup,
+        isPopOut: initOpts.isPopOut ?? false,
     };
     console.log("Wave Init", globalInitOpts);
     globalStore.set(activeTabIdAtom, initOpts.tabId);

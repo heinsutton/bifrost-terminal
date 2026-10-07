@@ -3,6 +3,7 @@
 
 import { atom, Atom, PrimitiveAtom } from "jotai";
 import { globalStore } from "./jotaiStore";
+import { countPopOutWindows, getWindowTabIds } from "./windowtabs";
 import { setWaveWindowType } from "./windowtype";
 import * as WOS from "./wos";
 
@@ -77,6 +78,12 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
     }) as Atom<boolean>;
     // this is *the* tab that this tabview represents.  it should never change.
     const staticTabIdAtom: Atom<string> = atom(initOpts.tabId);
+    // the window role is fixed for a tab view (a tab moved to another window gets a new view)
+    const isPopOutWindowAtom: Atom<boolean> = atom(initOpts.isPopOut ?? false);
+    const windowTabIdsAtom: Atom<string[]> = atom((get) =>
+        getWindowTabIds(get(workspaceAtom), initOpts.windowId, initOpts.isPopOut ?? false)
+    );
+    const popOutWindowCountAtom: Atom<number> = atom((get) => countPopOutWindows(get(workspaceAtom)));
     const controlShiftDelayAtom = atom(false);
     const updaterStatusAtom = atom<UpdaterStatus>("up-to-date") as PrimitiveAtom<UpdaterStatus>;
     try {
@@ -149,6 +156,9 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
         allConnStatus: allConnStatusAtom,
         reinitVersion,
         waveAIRateLimitInfoAtom: rateLimitInfoAtom,
+        isPopOutWindow: isPopOutWindowAtom,
+        windowTabIds: windowTabIdsAtom,
+        popOutWindowCount: popOutWindowCountAtom,
     } as GlobalAtomsType;
 }
 

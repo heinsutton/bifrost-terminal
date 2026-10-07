@@ -10,6 +10,9 @@ export type TabBarEnv = WaveEnvSubset<{
         setActiveTab: WaveEnv["electron"]["setActiveTab"];
         showWorkspaceAppMenu: WaveEnv["electron"]["showWorkspaceAppMenu"];
         installAppUpdate: WaveEnv["electron"]["installAppUpdate"];
+        popOutTab: WaveEnv["electron"]["popOutTab"];
+        moveTabToWindow: WaveEnv["electron"]["moveTabToWindow"];
+        focusMainWindow: WaveEnv["electron"]["focusMainWindow"];
     };
     rpc: {
         ActivityCommand: WaveEnv["rpc"]["ActivityCommand"];
@@ -26,6 +29,9 @@ export type TabBarEnv = WaveEnvSubset<{
         zoomFactorAtom: WaveEnv["atoms"]["zoomFactorAtom"];
         reinitVersion: WaveEnv["atoms"]["reinitVersion"];
         updaterStatusAtom: WaveEnv["atoms"]["updaterStatusAtom"];
+        workspace: WaveEnv["atoms"]["workspace"];
+        windowTabIds: WaveEnv["atoms"]["windowTabIds"];
+        isPopOutWindow: WaveEnv["atoms"]["isPopOutWindow"];
     };
     wos: WaveEnv["wos"];
     getSettingsKeyAtom: SettingsKeyAtomFnType<"app:hideaibutton" | "app:tabbar" | "tab:confirmclose" | "window:showmenubar">;

@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { waveEventSubscribeSingle } from "@/app/store/wps";
@@ -8,13 +8,13 @@ import { fireAndForget } from "../frontend/util/util";
 import { focusedBuilderWindow, getBuilderWindowById } from "./emain-builder";
 import { openBuilderWindow } from "./emain-ipc";
 import { isDev, unamePlatform } from "./emain-platform";
-import { clearTabCache } from "./emain-tabview";
+import { clearTabCache, getWaveTabViewByWebContentsId } from "./emain-tabview";
 import {
     createNewWaveWindow,
     createWorkspace,
     focusedWaveWindow,
     getAllWaveWindows,
-    getWaveWindowByWorkspaceId,
+    getMainWaveWindowByWorkspaceId,
     relaunchBrowserWindows,
     WaveBrowserWindow,
 } from "./emain-window";
@@ -405,7 +405,7 @@ function initMenuEventSubscriptions() {
 }
 
 function getWebContentsByWorkspaceOrBuilderId(workspaceOrBuilderId: string): electron.WebContents {
-    const ww = getWaveWindowByWorkspaceId(workspaceOrBuilderId);
+    const ww = getMainWaveWindowByWorkspaceId(workspaceOrBuilderId);
     if (ww) {
         return ww.activeTabView?.webContents;
     }
@@ -448,7 +448,11 @@ function convertMenuDefArrToMenu(
 electron.ipcMain.on(
     "contextmenu-show",
     (event, workspaceOrBuilderId: string, menuDefArr: ElectronContextMenuItem[]) => {
-        const webContents = getWebContentsByWorkspaceOrBuilderId(workspaceOrBuilderId);
+        // the sender's own tab view first, so a menu opened in a popped-out window stays in that window
+        const webContents =
+            getWaveTabViewByWebContentsId(event.sender.id) != null
+                ? event.sender
+                : getWebContentsByWorkspaceOrBuilderId(workspaceOrBuilderId);
         if (!webContents) {
             console.error("invalid window for context menu:", workspaceOrBuilderId);
             event.returnValue = true;

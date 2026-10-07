@@ -338,15 +338,19 @@ function switchBlockInDirection(direction: NavigateDirection) {
     }, 10);
 }
 
-function getAllTabs(ws: Workspace): string[] {
-    return ws.tabids ?? [];
+// the tabs shown in this window (a popped-out window only cycles through its own tabs)
+function getAllTabs(): string[] {
+    return globalStore.get(atoms.windowTabIds) ?? [];
+}
+
+function isPopOutWindow(): boolean {
+    return globalStore.get(atoms.isPopOutWindow) ?? false;
 }
 
 function switchTabAbs(index: number) {
     console.log("switchTabAbs", index);
-    const ws = globalStore.get(atoms.workspace);
     const newTabIdx = index - 1;
-    const tabids = getAllTabs(ws);
+    const tabids = getAllTabs();
     if (newTabIdx < 0 || newTabIdx >= tabids.length) {
         return;
     }
@@ -356,10 +360,9 @@ function switchTabAbs(index: number) {
 
 function switchTab(offset: number) {
     console.log("switchTab", offset);
-    const ws = globalStore.get(atoms.workspace);
     const curTabId = globalStore.get(atoms.staticTabId);
     let tabIdx = -1;
-    const tabids = getAllTabs(ws);
+    const tabids = getAllTabs();
     for (let i = 0; i < tabids.length; i++) {
         if (tabids[i] == curTabId) {
             tabIdx = i;
@@ -792,19 +795,31 @@ function registerGlobalKeys() {
     }
     if (isWindows()) {
         globalKeyMap.set("Alt:c{Digit0}", () => {
+            if (isPopOutWindow()) {
+                return true;
+            }
             WaveAIModel.getInstance().focusInput();
             return true;
         });
         globalKeyMap.set("Alt:c{Numpad0}", () => {
+            if (isPopOutWindow()) {
+                return true;
+            }
             WaveAIModel.getInstance().focusInput();
             return true;
         });
     } else {
         globalKeyMap.set("Ctrl:Shift:c{Digit0}", () => {
+            if (isPopOutWindow()) {
+                return true;
+            }
             WaveAIModel.getInstance().focusInput();
             return true;
         });
         globalKeyMap.set("Ctrl:Shift:c{Numpad0}", () => {
+            if (isPopOutWindow()) {
+                return true;
+            }
             WaveAIModel.getInstance().focusInput();
             return true;
         });
@@ -858,10 +873,17 @@ function registerGlobalKeys() {
         if (globalStore.get(FocusManager.getInstance().focusType) === "node" && SaveKeyViewTypes.has(focusedView)) {
             return false;
         }
+        // popped-out windows have no widgets sidebar
+        if (isPopOutWindow()) {
+            return false;
+        }
         WorkspaceLayoutModel.getInstance().toggleWidgetsSidebar();
         return true;
     });
     globalKeyMap.set("Cmd:Shift:a", () => {
+        if (isPopOutWindow()) {
+            return true;
+        }
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
         WorkspaceLayoutModel.getInstance().setAIPanelVisible(!currentVisible);
         return true;

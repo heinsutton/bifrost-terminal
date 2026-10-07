@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { WindowService } from "@/app/store/services";
@@ -8,7 +8,12 @@ import { Notification, net, safeStorage, shell } from "electron";
 import { getResolvedUpdateChannel } from "emain/updater";
 import { unamePlatform } from "./emain-platform";
 import { getWebContentsByBlockId, webGetSelector } from "./emain-web";
-import { createBrowserWindow, getWaveWindowById, getWaveWindowByWorkspaceId } from "./emain-window";
+import {
+    createBrowserWindow,
+    getMainWaveWindowByWorkspaceId,
+    getWaveWindowById,
+    getWaveWindowByTabId,
+} from "./emain-window";
 
 export class ElectronWshClientType extends WshClient {
     constructor() {
@@ -19,7 +24,7 @@ export class ElectronWshClientType extends WshClient {
         if (!data.tabid || !data.blockid || !data.workspaceid) {
             throw new Error("tabid and blockid are required");
         }
-        const ww = getWaveWindowByWorkspaceId(data.workspaceid);
+        const ww = getWaveWindowByTabId(data.tabid) ?? getMainWaveWindowByWorkspaceId(data.workspaceid);
         if (ww == null) {
             throw new Error(`no window found with workspace ${data.workspaceid}`);
         }

@@ -12,6 +12,7 @@ import { validateCssColor } from "@/util/color-validator";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { RealmChip } from "./realmchip";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
 import { UpdateStatusBanner } from "./updatebanner";
 import { VTab, VTabItem } from "./vtab";
@@ -51,6 +52,7 @@ VTabBarAIButton.displayName = "VTabBarAIButton";
 const MacOSHeader = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
     const isFullScreen = useAtomValue(env.atoms.isFullScreen);
+    const isPopOutWindow = useAtomValue(env.atoms.isPopOutWindow);
     return (
         <>
             {!isFullScreen && (
@@ -68,11 +70,22 @@ const MacOSHeader = memo(() => {
                 className="flex shrink-0 flex-row flex-wrap items-end px-1 pb-1 pl-2"
                 style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
             >
-                <VTabBarAIButton />
-                <Tooltip content="Realm Switcher" placement="bottom" hideOnClick divClassName="flex items-center">
-                    <WorkspaceSwitcher />
-                </Tooltip>
-                <UpdateStatusBanner />
+                {isPopOutWindow ? (
+                    <RealmChip />
+                ) : (
+                    <>
+                        <VTabBarAIButton />
+                        <Tooltip
+                            content="Realm Switcher"
+                            placement="bottom"
+                            hideOnClick
+                            divClassName="flex items-center"
+                        >
+                            <WorkspaceSwitcher />
+                        </Tooltip>
+                        <UpdateStatusBanner />
+                    </>
+                )}
             </div>
         </>
     );
@@ -189,7 +202,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const activeTabId = useAtomValue(env.atoms.staticTabId);
     const reinitVersion = useAtomValue(env.atoms.reinitVersion);
     const documentHasFocus = useAtomValue(env.atoms.documentHasFocus);
-    const tabIds = workspace?.tabids ?? [];
+    const tabIds = useAtomValue(env.atoms.windowTabIds) ?? [];
 
     const [orderedTabIds, setOrderedTabIds] = useState<string[]>(tabIds);
     const [dragTabId, setDragTabId] = useState<string | null>(null);
@@ -207,11 +220,11 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
 
     useEffect(() => {
         setOrderedTabIds(tabIds);
-    }, [workspace?.tabids]);
+    }, [tabIds]);
 
     useEffect(() => {
         if (reinitVersion > 0) {
-            setOrderedTabIds(workspace?.tabids ?? []);
+            setOrderedTabIds(tabIds);
         }
     }, [reinitVersion]);
 

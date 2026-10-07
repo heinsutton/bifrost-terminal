@@ -368,8 +368,15 @@ class WorkspaceLayoutModel {
         });
     }
 
+    // popped-out windows never show the Wave AI panel
     isAIHidden(): boolean {
-        return globalStore.get(getSettingsKeyAtom("app:hideaibutton")) === true;
+        return (
+            globalStore.get(getSettingsKeyAtom("app:hideaibutton")) === true || globalStore.get(atoms.isPopOutWindow)
+        );
+    }
+
+    getVTabWidth(): number {
+        return this.getResolvedVTabWidth();
     }
 
     getAIPanelWidth(): number {

@@ -18,6 +18,10 @@ import "./tab.scss";
 import { buildTabContextMenu } from "./tabcontextmenu";
 
 export type TabEnv = WaveEnvSubset<{
+    electron: {
+        popOutTab: WaveEnv["electron"]["popOutTab"];
+        moveTabToWindow: WaveEnv["electron"]["moveTabToWindow"];
+    };
     rpc: {
         ActivityCommand: WaveEnv["rpc"]["ActivityCommand"];
         SetConfigCommand: WaveEnv["rpc"]["SetConfigCommand"];
@@ -26,6 +30,8 @@ export type TabEnv = WaveEnvSubset<{
     };
     atoms: {
         fullConfigAtom: WaveEnv["atoms"]["fullConfigAtom"];
+        windowTabIds: WaveEnv["atoms"]["windowTabIds"];
+        isPopOutWindow: WaveEnv["atoms"]["isPopOutWindow"];
     };
     wos: WaveEnv["wos"];
     getSettingsKeyAtom: WaveEnv["getSettingsKeyAtom"];

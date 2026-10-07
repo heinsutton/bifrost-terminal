@@ -12,6 +12,9 @@ export type VTabBarEnv = WaveEnvSubset<{
         createWorkspace: WaveEnv["electron"]["createWorkspace"];
         switchWorkspace: WaveEnv["electron"]["switchWorkspace"];
         installAppUpdate: WaveEnv["electron"]["installAppUpdate"];
+        popOutTab: WaveEnv["electron"]["popOutTab"];
+        moveTabToWindow: WaveEnv["electron"]["moveTabToWindow"];
+        focusMainWindow: WaveEnv["electron"]["focusMainWindow"];
     };
     rpc: {
         UpdateWorkspaceTabIdsCommand: WaveEnv["rpc"]["UpdateWorkspaceTabIdsCommand"];
@@ -28,6 +31,8 @@ export type VTabBarEnv = WaveEnvSubset<{
         workspace: WaveEnv["atoms"]["workspace"];
         updaterStatusAtom: WaveEnv["atoms"]["updaterStatusAtom"];
         isFullScreen: WaveEnv["atoms"]["isFullScreen"];
+        windowTabIds: WaveEnv["atoms"]["windowTabIds"];
+        isPopOutWindow: WaveEnv["atoms"]["isPopOutWindow"];
     };
     services: {
         workspace: WaveEnv["services"]["workspace"];

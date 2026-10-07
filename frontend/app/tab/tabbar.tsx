@@ -12,6 +12,7 @@ import { useAtomValue } from "jotai";
 import { OverlayScrollbars } from "overlayscrollbars";
 import { createRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { debounce } from "throttle-debounce";
+import { RealmChip } from "./realmchip";
 import { Tab } from "./tab";
 import "./tabbar.scss";
 import { TabBarEnv } from "./tabbarenv";
@@ -132,8 +133,11 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const zoomFactor = useAtomValue(env.atoms.zoomFactorAtom);
     const showMenuBar = useAtomValue(env.getSettingsKeyAtom("window:showmenubar"));
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
     const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
+    const windowTabIds = useAtomValue(env.atoms.windowTabIds);
+    const isPopOutWindow = useAtomValue(env.atoms.isPopOutWindow);
+    const hideAiButton = hideAiButtonSetting || isPopOutWindow;
 
     let prevDelta: number;
     let prevDragDirection: string;
@@ -147,14 +151,14 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         if (!workspace) {
             return;
         }
-        const newTabIdsArr = workspace.tabids ?? [];
+        const newTabIdsArr = windowTabIds ?? [];
 
         const areEqual = strArrayIsEqual(tabIds, newTabIdsArr);
 
         if (!areEqual) {
             setTabIds(newTabIdsArr);
         }
-    }, [workspace, tabIds]);
+    }, [workspace, windowTabIds, tabIds]);
 
     const saveTabsPosition = useCallback(() => {
         const tabs = tabRefs.current;
@@ -571,7 +575,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     }
 
     const tabsWrapperWidth = tabIds.length * tabWidthRef.current;
-    const showAppMenuButton = env.isWindows() || (!env.isMacOS() && !showMenuBar);
+    const showAppMenuButton = !isPopOutWindow && (env.isWindows() || (!env.isMacOS() && !showMenuBar));
 
     // Calculate window drag left width based on platform and state
     let windowDragLeftWidth = 10;
@@ -613,16 +617,22 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
                     <i className="fa fa-ellipsis" />
                 </div>
             )}
-            <WaveAIButton divRef={waveAIButtonRef} />
-            <Tooltip
-                content="Realm Switcher"
-                placement="bottom"
-                hideOnClick
-                divRef={workspaceSwitcherRef}
-                divClassName="flex items-center"
-            >
-                <WorkspaceSwitcher />
-            </Tooltip>
+            {isPopOutWindow ? (
+                <RealmChip divRef={workspaceSwitcherRef} />
+            ) : (
+                <>
+                    <WaveAIButton divRef={waveAIButtonRef} />
+                    <Tooltip
+                        content="Realm Switcher"
+                        placement="bottom"
+                        hideOnClick
+                        divRef={workspaceSwitcherRef}
+                        divClassName="flex items-center"
+                    >
+                        <WorkspaceSwitcher />
+                    </Tooltip>
+                </>
+            )}
             <div className="tab-bar" ref={tabBarRef} data-overlayscrollbars-initialize>
                 <div
                     className="tabs-wrapper"
@@ -666,7 +676,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             </button>
             <div className="flex-1" />
             <div ref={rightContainerRef} className="flex flex-row gap-1 items-end">
-                <UpdateStatusBanner />
+                {!isPopOutWindow && <UpdateStatusBanner />}
                 <div
                     className="h-full shrink-0 z-window-drag"
                     style={{ width: windowDragRightWidth, WebkitAppRegion: "drag" } as any}

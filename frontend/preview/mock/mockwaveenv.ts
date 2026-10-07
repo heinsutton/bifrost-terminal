@@ -4,6 +4,7 @@
 import { makeDefaultConnStatus } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { AllServiceTypes } from "@/app/store/services";
+import { countPopOutWindows, getWindowTabIds } from "@/app/store/windowtabs";
 import { handleWaveEvent } from "@/app/store/wps";
 import { RpcApiType } from "@/app/store/wshclientapi";
 import { WaveEnv } from "@/app/waveenv/waveenv";
@@ -187,6 +188,9 @@ function makeMockGlobalAtoms(
         allConnStatus: atom([] as ConnStatus[]),
         reinitVersion: atom(0) as any,
         waveAIRateLimitInfoAtom: atom(null) as any,
+        isPopOutWindow: atom(false),
+        windowTabIds: atom((get) => getWindowTabIds(get(workspaceAtom), "", false)),
+        popOutWindowCount: atom((get) => countPopOutWindows(get(workspaceAtom))),
     };
     if (!atomOverrides) {
         return defaults;
@@ -194,6 +198,12 @@ function makeMockGlobalAtoms(
     const merged = { ...defaults, ...atomOverrides };
     if (!atomOverrides.workspace) {
         merged.workspace = workspaceAtom;
+    }
+    if (!atomOverrides.windowTabIds) {
+        merged.windowTabIds = atom((get) => getWindowTabIds(get(merged.workspace), "", false));
+    }
+    if (!atomOverrides.popOutWindowCount) {
+        merged.popOutWindowCount = atom((get) => countPopOutWindows(get(merged.workspace)));
     }
     return merged;
 }

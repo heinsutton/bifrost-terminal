@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { RpcApi } from "@/app/store/wshclientapi";
@@ -46,10 +46,11 @@ import {
     createNewWaveWindow,
     focusedWaveWindow,
     getAllWaveWindows,
+    getMainWaveWindowByWorkspaceId,
     getQuakeWindow,
     getWaveWindowById,
-    getWaveWindowByWorkspaceId,
     initGlobalHotkeyEventSubscription,
+    initPopOutWindowEventSubscriptions,
     registerGlobalHotkey,
     relaunchBrowserWindows,
     WaveBrowserWindow,
@@ -108,9 +109,11 @@ function handleWSEvent(evtMsg: WSEventType) {
                 ww.destroy(); // bypass the "are you sure?" dialog
             }
         } else if (evtMsg.eventtype == "electron:updateactivetab") {
-            const activeTabUpdate: { workspaceid: string; newactivetabid: string } = evtMsg.data;
+            const activeTabUpdate: { workspaceid: string; newactivetabid: string; windowid?: string } = evtMsg.data;
             console.log("electron:updateactivetab", activeTabUpdate);
-            const ww = getWaveWindowByWorkspaceId(activeTabUpdate.workspaceid);
+            const ww =
+                getWaveWindowById(activeTabUpdate.windowid) ??
+                getMainWaveWindowByWorkspaceId(activeTabUpdate.workspaceid);
             if (ww == null) {
                 return;
             }
@@ -406,6 +409,7 @@ async function appMain() {
         initElectronWshClient();
         initElectronWshrpc(ElectronWshClient, { authKey: AuthKey });
         initMenuEventSubscriptions();
+        initPopOutWindowEventSubscriptions();
     } catch (e) {
         console.log("error initializing wshrpc", e);
     }

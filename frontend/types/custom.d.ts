@@ -29,6 +29,9 @@ declare global {
         allConnStatus: jotai.Atom<ConnStatus[]>;
         reinitVersion: jotai.PrimitiveAtom<number>;
         waveAIRateLimitInfoAtom: jotai.PrimitiveAtom<RateLimitInfo>;
+        isPopOutWindow: jotai.Atom<boolean>; // static, from the init opts: this window is a popped-out window
+        windowTabIds: jotai.Atom<string[]>; // tabs shown in this window, in workspace order
+        popOutWindowCount: jotai.Atom<number>; // number of popped-out windows of this realm
     };
 
     type ThrottledValueAtom<T> = jotai.WritableAtom<T, [update: jotai.SetStateAction<T>], void>;
@@ -61,6 +64,7 @@ declare global {
         primaryTabStartup?: boolean;
         builderId?: string;
         isPreview?: boolean;
+        isPopOut?: boolean;
     };
 
     type WaveInitOpts = {
@@ -69,6 +73,7 @@ declare global {
         windowId: string;
         activate: boolean;
         primaryTabStartup?: boolean;
+        isPopOut?: boolean; // window role (popped-out vs main); never changes for a tab view
     };
 
     type BuilderInitOpts = {
@@ -138,6 +143,9 @@ declare global {
         getPathForFile: (file: File) => string; // webUtils.getPathForFile
         saveTextFile: (fileName: string, content: string) => Promise<boolean>; // save-text-file
         setIsActive: () => Promise<void>; // set-is-active
+        popOutTab: (tabId: string) => void; // popout-tab
+        moveTabToWindow: (tabId: string, destWindowId: string) => void; // move-tab-to-window (null destWindowId = main window)
+        focusMainWindow: () => void; // focus-main-window
     };
 
     type ElectronContextMenuItem = {

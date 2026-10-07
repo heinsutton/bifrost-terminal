@@ -48,9 +48,16 @@ export function buildTabContextMenu(
         {
             label: "Copy TabId",
             click: () => fireAndForget(() => navigator.clipboard.writeText(id)),
-        },
-        { type: "separator" }
+        }
     );
+    const windowTabCount = globalStore.get(env.atoms.windowTabIds)?.length ?? 0;
+    if (windowTabCount > 1) {
+        menu.push({ label: "Pop Out", click: () => env.electron.popOutTab(id) });
+    }
+    if (globalStore.get(env.atoms.isPopOutWindow)) {
+        menu.push({ label: "Return to Main Window", click: () => env.electron.moveTabToWindow(id, null) });
+    }
+    menu.push({ type: "separator" });
     const tabORef = makeORef("tab", id);
     const currentSigilColor = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:flagcolor")) ?? null;
     const sigilSubmenu: ContextMenuItem[] = [

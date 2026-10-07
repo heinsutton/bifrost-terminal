@@ -1,4 +1,4 @@
-// Copyright 2025, Command Line Inc.
+// Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
 import { RpcApi } from "@/app/store/wshclientapi";
@@ -300,8 +300,17 @@ export function clearTabCache() {
 // returns [tabview, initialized]
 export async function getOrCreateWebViewForTab(waveWindowId: string, tabId: string): Promise<[WaveTabView, boolean]> {
     let tabView = getWaveTabView(tabId);
-    if (tabView) {
+    if (tabView && tabView.waveWindowId === waveWindowId) {
         return [tabView, true];
+    }
+    if (tabView) {
+        // the tab moved to another window: never reuse a view that belongs to (or is attached to) a different window
+        console.log("getOrCreateWebViewForTab: dropping view of tab owned by another window", tabId);
+        const ownerWin = getWaveWindowById(tabView.waveWindowId);
+        ownerWin?.removeTabView(tabId, true);
+        if (!tabView.isDestroyed) {
+            tabView.destroy();
+        }
     }
     const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
     tabView = getSpareTab(fullConfig);
