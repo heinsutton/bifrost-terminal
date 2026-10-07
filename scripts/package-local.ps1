@@ -1,7 +1,7 @@
 # Copyright 2026, Command Line Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-# Builds a local Windows NSIS installer for this fork (make\Wave-win32-x64-<version>.exe).
+# Builds a local Windows NSIS installer for this fork (make\Bifrost*-win32-x64-<version>.exe).
 #
 # Use this instead of `task package` for local builds. `task package` runs `clean` (which deletes dist/)
 # in parallel with build:backend, and Task's checksum cache in .task/ can mark build:backend as up to date
@@ -10,7 +10,7 @@
 #
 # Usage (from anywhere):
 #   .\scripts\package-local.ps1             # build the installer only
-#   .\scripts\package-local.ps1 -Install    # build, close Wave, install silently over the existing install
+#   .\scripts\package-local.ps1 -Install    # build, close Bifrost Terminal, install silently over the existing install
 
 param(
     [switch]$Install
@@ -45,7 +45,7 @@ try {
     if (-not (Test-Path $packagedSrv)) {
         throw "Packaged app is missing wavesrv.x64.exe ($packagedSrv); the installer would not start its backend"
     }
-    $installer = Get-ChildItem (Join-Path $RepoRoot "make") -Filter "Wave-win32-x64-*.exe" | Select-Object -First 1
+    $installer = Get-ChildItem (Join-Path $RepoRoot "make") -Filter "Bifrost*-win32-x64-*.exe" | Select-Object -First 1
     if ($installer -eq $null) {
         throw "Installer not found in make\"
     }
@@ -53,13 +53,13 @@ try {
     Write-Host "Built $($installer.FullName)" -ForegroundColor Green
 
     if (-not $Install) {
-        Write-Host "Close Wave, then run the installer above (or re-run this script with -Install)."
+        Write-Host "Close Bifrost Terminal, then run the installer above (or re-run this script with -Install)."
         return
     }
 
     Write-Host ""
-    Write-Host "==> Closing Wave and installing" -ForegroundColor Cyan
-    Get-Process -Name "Wave", "wavesrv.x64" -ErrorAction SilentlyContinue | Stop-Process -Force
+    Write-Host "==> Closing Bifrost Terminal and installing" -ForegroundColor Cyan
+    Get-Process -Name "Bifrost Terminal", "wavesrv.x64" -ErrorAction SilentlyContinue | Stop-Process -Force
     Start-Sleep -Seconds 2
     $proc = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -PassThru -Wait
     if ($proc.ExitCode -ne 0) {
@@ -69,7 +69,7 @@ try {
     if (-not (Test-Path $installedSrv)) {
         throw "Install finished but $installedSrv is missing"
     }
-    Write-Host "Installed. Start Wave from the Start menu." -ForegroundColor Green
+    Write-Host "Installed. Start Bifrost Terminal from the Start menu." -ForegroundColor Green
 }
 finally {
     Pop-Location

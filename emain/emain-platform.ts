@@ -32,7 +32,9 @@ const waveDirName = `${waveDirNamePrefix}${waveDirNameSuffix ? `-${waveDirNameSu
 
 const paths = envPaths("waveterm", { suffix: waveDirNameSuffix });
 
-app.setName(isDev ? "Wave (Dev)" : "Wave");
+app.setName(isDev ? "Bifrost Terminal (Dev)" : "Bifrost Terminal");
+// Legacy folder name kept so Local Storage and IndexedDB survive the app rename.
+app.setPath("userData", path.join(app.getPath("appData"), isDev ? "Wave (Dev)" : "Wave"));
 const unamePlatform = process.platform;
 const unameArch: string = process.arch;
 keyutil.setKeyUtilPlatform(unamePlatform);
@@ -47,8 +49,8 @@ export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) 
         const dialogOpts: Electron.MessageBoxOptions = {
             type: "warning",
             buttons: ["Dismiss", "Learn More"],
-            title: "Wave has detected a performance issue",
-            message: `Wave is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from our website for optimal performance.`,
+            title: "Bifrost Terminal has detected a performance issue",
+            message: `Bifrost Terminal is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from our website for optimal performance.`,
         };
 
         const choice = dialog.showMessageBoxSync(null, dialogOpts);
