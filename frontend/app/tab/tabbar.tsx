@@ -157,6 +157,14 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
         if (!areEqual) {
             setTabIds(newTabIdsArr);
+            // forget tabs that left this window: a tab that comes back (e.g. a closed popped-out window
+            // returning its tabs) must report onLoaded again, which re-renders with its ref attached
+            // so the layout pass positions it
+            setTabsLoaded((prev) => {
+                const keep = new Set(newTabIdsArr);
+                const pruned = Object.fromEntries(Object.entries(prev).filter(([id]) => keep.has(id)));
+                return Object.keys(pruned).length === Object.keys(prev).length ? prev : pruned;
+            });
         }
     }, [workspace, windowTabIds, tabIds]);
 
