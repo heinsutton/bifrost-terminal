@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
 import { atoms } from "@/app/store/global";
 import { modalsModel } from "@/app/store/modalmodel";
@@ -27,7 +27,7 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
             <OnboardingGradientBg />
             <div className="flex flex-col gap-[26px] w-full relative z-10">
                 <div className="flex flex-col items-center justify-center gap-4 self-stretch w-full text-center">
-                    <Logo />
+                    <BifrostLogo />
                     <div className="text-[25px]">Wave Terminal</div>
                     <div className="leading-5">
                         Open-Source AI-Integrated Terminal

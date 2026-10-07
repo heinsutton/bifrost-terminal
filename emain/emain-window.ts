@@ -181,7 +181,7 @@ export class WaveBrowserWindow extends BaseWindow {
             } else if (isBlur) {
                 winOpts.vibrancy = "fullscreen-ui";
             } else {
-                winOpts.backgroundColor = "#222222";
+                winOpts.backgroundColor = "#0e1117";
             }
         } else if (opts.unamePlatform === "linux") {
             winOpts.titleBarStyle = settings["window:nativetitlebar"] ? "default" : "hidden";
@@ -189,12 +189,12 @@ export class WaveBrowserWindow extends BaseWindow {
                 symbolColor: "white",
                 color: "#00000000",
             };
-            winOpts.icon = path.join(getElectronAppBasePath(), "public/logos/wave-logo-dark.png");
+            winOpts.icon = path.join(getElectronAppBasePath(), "public/logos/bifrost-icon.png");
             winOpts.autoHideMenuBar = !settings?.["window:showmenubar"];
             if (isTransparent) {
                 winOpts.transparent = true;
             } else {
-                winOpts.backgroundColor = "#222222";
+                winOpts.backgroundColor = "#0e1117";
             }
         } else if (opts.unamePlatform === "win32") {
             winOpts.titleBarStyle = "hidden";
@@ -203,12 +203,13 @@ export class WaveBrowserWindow extends BaseWindow {
                 symbolColor: "#c3c8c2",
                 height: 32,
             };
+            winOpts.icon = path.join(getElectronAppBasePath(), "public/logos/bifrost-icon.png");
             if (isTransparent) {
                 winOpts.transparent = true;
             } else if (isBlur) {
                 winOpts.backgroundMaterial = "acrylic";
             } else {
-                winOpts.backgroundColor = "#222222";
+                winOpts.backgroundColor = "#0e1117";
             }
         }
 

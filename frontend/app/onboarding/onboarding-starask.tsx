@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { Button } from "@/app/element/button";
 import { ClientModel } from "@/app/store/client-model";
 import * as WOS from "@/app/store/wos";
@@ -82,7 +82,7 @@ export function StarAskPage({ onClose, page = "upgrade" }: StarAskPageProps) {
         <div className="flex flex-col h-full">
             <header className="flex flex-col gap-2 border-b-0 p-0 mt-1 mb-6 w-full unselectable flex-shrink-0">
                 <div className="flex justify-center">
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-center text-[25px] font-normal text-foreground">Support open-source. Star Wave. ⭐</div>
             </header>

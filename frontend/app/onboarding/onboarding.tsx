@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { Button } from "@/app/element/button";
 import { FlexiModal } from "@/app/modals/modal";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
@@ -83,7 +83,7 @@ const InitPage = ({
                 className={`flex flex-col gap-2 border-b-0 p-0 ${isCompact ? "mt-1 mb-4" : "mb-9"} w-full unselectable flex-shrink-0`}
             >
                 <div className={`${isCompact ? "" : "mb-2.5"} flex justify-center`}>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-center text-[25px] font-normal text-foreground">Welcome to Wave Terminal</div>
             </header>
@@ -232,7 +232,7 @@ const NoTelemetryStarPage = ({ isCompact }: { isCompact: boolean }) => {
         <div className="flex flex-col h-full">
             <header className={`flex flex-col gap-2 border-b-0 p-0 mt-1 mb-4 w-full unselectable flex-shrink-0`}>
                 <div className={`flex justify-center`}>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-center text-[25px] font-normal text-foreground">Telemetry Disabled ✓</div>
             </header>

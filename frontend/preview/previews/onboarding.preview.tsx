@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { InitPage, NoTelemetryStarPage } from "@/app/onboarding/onboarding";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
 import { DurableSessionPage } from "@/app/onboarding/onboarding-durable";
@@ -56,7 +56,7 @@ function UpgradeOnboardingPatchV() {
                     <OnboardingModalWrapper key={version.version} width="w-[650px]">
                         <header className="flex flex-col gap-2 border-b-0 p-0 mt-1 mb-6 w-full unselectable flex-shrink-0">
                             <div className="flex justify-center">
-                                <Logo />
+                                <BifrostLogo />
                             </div>
                             <div className="text-center text-[25px] font-normal text-foreground">
                                 Wave {version.version} Update

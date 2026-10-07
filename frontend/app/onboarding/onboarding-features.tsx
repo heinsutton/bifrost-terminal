@@ -1,7 +1,7 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { EmojiButton } from "@/app/element/emojibutton";
 import { MagnifyIcon } from "@/app/element/magnify";
 import { ClientModel } from "@/app/store/client-model";
@@ -41,7 +41,7 @@ export const WaveAIPage = ({ onNext, onSkip }: { onNext: () => void; onSkip: () 
         <div className="flex flex-col h-full">
             <header className="flex items-center gap-4 mb-6 w-full unselectable flex-shrink-0">
                 <div>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-[25px] font-normal text-foreground">Wave AI</div>
             </header>
@@ -136,7 +136,7 @@ export const MagnifyBlocksPage = ({
         <div className="flex flex-col h-full">
             <header className="flex items-center gap-4 mb-6 w-full unselectable flex-shrink-0">
                 <div>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-[25px] font-normal text-foreground">Magnify Blocks</div>
             </header>
@@ -206,7 +206,7 @@ export const FilesPage = ({ onFinish, onPrev }: { onFinish: () => void; onPrev?:
         <div className="flex flex-col h-full">
             <header className="flex items-center gap-4 mb-6 w-full unselectable flex-shrink-0">
                 <div>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-[25px] font-normal text-foreground">Viewing/Editing Files</div>
             </header>

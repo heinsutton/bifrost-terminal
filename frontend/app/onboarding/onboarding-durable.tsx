@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import Logo from "@/app/asset/logo.svg";
+import { BifrostLogo } from "@/app/asset/bifrost-logo";
 import { EmojiButton } from "@/app/element/emojibutton";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -38,7 +38,7 @@ export const DurableSessionPage = ({
         <div className="flex flex-col h-full">
             <header className="flex items-center gap-4 mb-6 w-full unselectable flex-shrink-0">
                 <div>
-                    <Logo />
+                    <BifrostLogo />
                 </div>
                 <div className="text-[25px] font-normal text-foreground">Durable SSH Sessions</div>
             </header>
