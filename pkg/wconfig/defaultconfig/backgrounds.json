@@ -5,6 +5,13 @@
         "bg": "linear-gradient( 226.4deg,  rgba(255,26,1,1) 28.9%, rgba(254,155,1,1) 33%, rgba(255,241,0,1) 48.6%, rgba(34,218,1,1) 65.3%, rgba(0,141,254,1) 80.6%, rgba(113,63,254,1) 100.1% )",
         "bg:opacity": 0.3
     },
+    "bg@bifrost": {
+        "display:name": "Bifrost",
+        "display:order": 2.05,
+        "bg": "linear-gradient(135deg, rgba(255,83,112,1) 0%, rgba(255,158,100,1) 8%, rgba(255,224,102,1) 16%, rgba(126,231,135,1) 26%, rgba(94,243,214,1) 42%, rgba(77,162,255,1) 68%, rgba(181,123,238,1) 100%)",
+        "bg:opacity": 0.25,
+        "bg:activebordercolor": "#5ef3d6"
+    },
     "bg@green": {
         "display:name": "Green",
         "display:order": 1.2,
