@@ -18,29 +18,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$SupportedNodeMajors = @(24, 22, 20)
-
-function Use-SupportedNode {
-    $current = (& node --version 2>$null)
-    if ($current -match '^v(\d+)\.' -and $SupportedNodeMajors -contains [int]$Matches[1]) {
-        Write-Host "Using node $current"
-        return
-    }
-    # node 26+ breaks `npm install` (sharp@0.32 in the docs workspace has no prebuilt binary), so prefer an
-    # nvm-installed LTS for this process only rather than switching the user's global node with `nvm use`
-    $nvmRoot = Join-Path $env:APPDATA "nvm"
-    foreach ($major in $SupportedNodeMajors) {
-        $candidate = Get-ChildItem $nvmRoot -Directory -Filter "v$major.*" -ErrorAction SilentlyContinue |
-            Sort-Object { [version]$_.Name.TrimStart("v") } -Descending |
-            Select-Object -First 1
-        if ($candidate -and (Test-Path (Join-Path $candidate.FullName "node.exe"))) {
-            $env:PATH = "$($candidate.FullName);$env:PATH"
-            Write-Host "Using node $(& node --version) from $($candidate.FullName)"
-            return
-        }
-    }
-    throw "No supported node found (need major $($SupportedNodeMajors -join '/')); current is '$current'. Install one with: nvm install 24"
-}
+. (Join-Path $PSScriptRoot "common.ps1")
 
 function Invoke-Step([string]$Name, [scriptblock]$Command) {
     Write-Host ""
@@ -54,11 +32,7 @@ function Invoke-Step([string]$Name, [scriptblock]$Command) {
 Push-Location $RepoRoot
 try {
     Use-SupportedNode
-    foreach ($tool in @("task", "go", "zig")) {
-        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-            throw "'$tool' is not on PATH (scoop install $tool)"
-        }
-    }
+    Assert-BuildTools
 
     Remove-Item -Recurse -Force (Join-Path $RepoRoot "make") -ErrorAction SilentlyContinue
     Invoke-Step "Backend (wavesrv, wsh, tsunami scaffold)" { task build:backend build:tsunamiscaffold --force }
