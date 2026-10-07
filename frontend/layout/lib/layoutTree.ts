@@ -18,6 +18,7 @@ import {
     LayoutTreeActionType,
     LayoutTreeComputeMoveNodeAction,
     LayoutTreeDeleteNodeAction,
+    LayoutTreeDockNodeAction,
     LayoutTreeFocusNodeAction,
     LayoutTreeInsertNodeAction,
     LayoutTreeInsertNodeAtIndexAction,
@@ -27,10 +28,12 @@ import {
     LayoutTreeState,
     LayoutTreeSwapNodeAction,
     MoveOperation,
+    NavigateDirection,
 } from "./types";
 
 import { newLayoutNode } from "./layoutNode";
 import { LayoutTreeReplaceNodeAction, LayoutTreeSplitHorizontalAction, LayoutTreeSplitVerticalAction } from "./types";
+import { reverseFlexDirection } from "./utils";
 
 export const DEFAULT_MAX_CHILDREN = 5;
 
@@ -349,6 +352,39 @@ export function swapNode(layoutState: LayoutTreeState, action: LayoutTreeSwapNod
 
     parentNode1.children[parentNode1Index] = node2;
     parentNode2.children[parentNode2Index] = node1;
+}
+
+export function dockNode(layoutState: LayoutTreeState, action: LayoutTreeDockNodeAction) {
+    const root = layoutState.rootNode;
+    if (!action?.nodeId || root == null || root.id === action.nodeId) {
+        console.error("invalid dockNode action, nodeId must be defined and cannot be the root");
+        return;
+    }
+    const parent = findParent(root, action.nodeId);
+    const node = parent?.children?.find((child) => child.id === action.nodeId);
+    if (node == null) {
+        console.error("unable to dock node, not found in tree");
+        return;
+    }
+    const isVertical = action.direction === NavigateDirection.Up || action.direction === NavigateDirection.Down;
+    const atStart = action.direction === NavigateDirection.Up || action.direction === NavigateDirection.Left;
+    const axisMatches = isVertical === (root.flexDirection === FlexDirection.Column);
+
+    if (parent === root && axisMatches) {
+        const idx = root.children.indexOf(node);
+        if (idx === (atStart ? 0 : root.children.length - 1)) {
+            return;
+        }
+    }
+
+    removeChild(parent, node);
+    node.size = DefaultNodeSize;
+    if (!axisMatches) {
+        const inner = newLayoutNode(root.flexDirection, DefaultNodeSize, root.children);
+        root.flexDirection = reverseFlexDirection(root.flexDirection);
+        root.children = [inner];
+    }
+    addChildAt(root, atStart ? 0 : root.children.length, node);
 }
 
 export function deleteNode(layoutState: LayoutTreeState, action: LayoutTreeDeleteNodeAction) {

@@ -16,6 +16,7 @@ import {
     clearTree,
     computeMoveNode,
     deleteNode,
+    dockNode,
     focusNode,
     insertNode,
     insertNodeAtIndex,
@@ -37,6 +38,7 @@ import {
     LayoutTreeClearTreeAction,
     LayoutTreeComputeMoveNodeAction,
     LayoutTreeDeleteNodeAction,
+    LayoutTreeDockNodeAction,
     LayoutTreeFocusNodeAction,
     LayoutTreeInsertNodeAction,
     LayoutTreeInsertNodeAtIndexAction,
@@ -641,6 +643,9 @@ export class LayoutModel {
             case LayoutTreeActionType.Swap:
                 swapNode(this.treeState, action as LayoutTreeSwapNodeAction);
                 break;
+            case LayoutTreeActionType.DockNode:
+                dockNode(this.treeState, action as LayoutTreeDockNodeAction);
+                break;
             case LayoutTreeActionType.ResizeNode:
                 resizeNode(this.treeState, action as LayoutTreeResizeNodeAction);
                 break;
@@ -1123,7 +1128,6 @@ export class LayoutModel {
             return { success: true };
         }
 
-        const offset = navigateDirectionToOffset(direction);
         const nodePositions: Map<string, Dimensions> = new Map();
         const leafs = this.getter(this.leafs);
         const addlProps = this.getter(this.additionalProps);
@@ -1157,15 +1161,34 @@ export class LayoutModel {
             }
             nodePositions.delete(curNodeId);
         }
+        const found = this.findNodeInDirection(direction, curNodePos, nodePositions);
+        if (found.nodeId != null) {
+            this.focusNode(found.nodeId);
+            return { success: true };
+        }
+        return found.edge ?? { success: false };
+    }
+
+    /**
+     * Walk from a position in the given direction until a node rect is hit or the container edge is reached.
+     * @param direction The direction to walk in.
+     * @param fromPos The rect to start walking from (its center is used).
+     * @param nodePositions The candidate node rects, keyed by node id.
+     */
+    private findNodeInDirection(
+        direction: NavigateDirection,
+        fromPos: Dimensions,
+        nodePositions: Map<string, Dimensions>
+    ): { nodeId?: string; edge?: NavigationResult } {
+        const offset = navigateDirectionToOffset(direction);
         const boundingRect = this.displayContainerRef?.current.getBoundingClientRect();
         if (!boundingRect) {
-            return { success: false };
+            return { edge: { success: false } };
         }
         const maxX = boundingRect.left + boundingRect.width;
         const maxY = boundingRect.top + boundingRect.height;
         const moveAmount = 10;
-        const curPoint = getCenter(curNodePos);
-
+        const curPoint = getCenter(fromPos);
         function findNodeAtPoint(m: Map<string, Dimensions>, p: Point): string {
             for (const [blockId, dimension] of m.entries()) {
                 if (
@@ -1198,14 +1221,62 @@ export class LayoutModel {
                 if (curPoint.y > maxY) {
                     result.atBottom = true;
                 }
-                return result;
+                return { edge: result };
             }
             const nodeId = findNodeAtPoint(nodePositions, curPoint);
             if (nodeId != null) {
-                this.focusNode(nodeId);
-                return { success: true };
+                return { nodeId };
             }
         }
+    }
+
+    /**
+     * Move the focused node one step in the given direction: swap with the neighbour, or dock on that edge of the layout.
+     * @param direction The direction to move the focused node in.
+     */
+    moveFocusedNodeInDirection(direction: NavigateDirection) {
+        const focusedNodeId = this.focusedNodeId;
+        if (focusedNodeId == null || this.getter(this.numLeafs) <= 1 || this.displayContainerRef?.current == null) {
+            return;
+        }
+        if (this.getter(this.ephemeralNode)?.id === focusedNodeId) {
+            return;
+        }
+        if (this.magnifiedNodeId != null) {
+            this.magnifyNodeToggle(this.magnifiedNodeId);
+        }
+        const nodePositions: Map<string, Dimensions> = new Map();
+        const addlProps = this.getter(this.additionalProps);
+        const ephemeralId = this.getter(this.ephemeralNode)?.id;
+        for (const leaf of this.getter(this.leafs)) {
+            if (leaf.id === ephemeralId) {
+                continue;
+            }
+            const pos = addlProps[leaf.id]?.rect;
+            if (pos) {
+                nodePositions.set(leaf.id, pos);
+            }
+        }
+        const curNodePos = nodePositions.get(focusedNodeId);
+        if (!curNodePos) {
+            return;
+        }
+        nodePositions.delete(focusedNodeId);
+        const found = this.findNodeInDirection(direction, curNodePos, nodePositions);
+        if (found.nodeId != null) {
+            this.treeReducer({
+                type: LayoutTreeActionType.Swap,
+                node1Id: focusedNodeId,
+                node2Id: found.nodeId,
+            } as LayoutTreeSwapNodeAction);
+        } else if (found.edge != null) {
+            this.treeReducer({
+                type: LayoutTreeActionType.DockNode,
+                nodeId: focusedNodeId,
+                direction,
+            } as LayoutTreeDockNodeAction);
+        }
+        FocusManager.getInstance().requestNodeFocus();
     }
 
     /**

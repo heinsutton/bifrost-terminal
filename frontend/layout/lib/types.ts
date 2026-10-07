@@ -75,6 +75,7 @@ export enum LayoutTreeActionType {
     ComputeMove = "computemove",
     Move = "move",
     Swap = "swap",
+    DockNode = "dock",
     SetPendingAction = "setpending",
     CommitPendingAction = "commitpending",
     ClearPendingAction = "clearpending",
@@ -134,6 +135,15 @@ export interface LayoutTreeSwapNodeAction extends LayoutTreeAction {
      * The node that node1 will replace.
      */
     node2Id: string;
+}
+
+/**
+ * Action for docking a node full-width or full-height on one edge of the root layout.
+ */
+export interface LayoutTreeDockNodeAction extends LayoutTreeAction {
+    type: LayoutTreeActionType.DockNode;
+    nodeId: string;
+    direction: NavigateDirection;
 }
 
 interface InsertNodeOperation {

@@ -696,6 +696,20 @@ function registerGlobalKeys() {
             return true;
         });
     }
+    const moveKeys: [string, NavigateDirection][] = [
+        ["Alt:Shift:ArrowUp", NavigateDirection.Up],
+        ["Alt:Shift:ArrowDown", NavigateDirection.Down],
+        ["Alt:Shift:ArrowLeft", NavigateDirection.Left],
+        ["Alt:Shift:ArrowRight", NavigateDirection.Right],
+    ];
+    for (const [keyDesc, direction] of moveKeys) {
+        globalKeyMap.set(keyDesc, () => {
+            if (isTabWindow()) {
+                getLayoutModelForStaticTab().moveFocusedNodeInDirection(direction);
+            }
+            return true;
+        });
+    }
     globalKeyMap.set("Ctrl:Shift:x", () => {
         const blockId = getFocusedBlockId();
         if (blockId == null) {
