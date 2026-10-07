@@ -35,29 +35,37 @@ describe("VTab badges", () => {
         globalThis.CSS = OriginalCss;
     });
 
-    it("renders shared badges and a validated flag badge", () => {
+    it("renders shared badges and a validated sigil badge", () => {
         const markup = renderVTab({
             id: "tab-1",
             name: "Build Logs",
             badges: [{ badgeid: "badge-1", icon: "bell", color: "#f59e0b", priority: 2 }],
-            flagColor: "#429DFF",
+            sigilColor: "#4da2ff",
         });
 
-        expect(markup).toContain("#429DFF");
+        expect(markup).toContain("#4da2ff");
         expect(markup).toContain("#f59e0b");
         expect(markup).toContain("rounded-full");
     });
 
-    it("ignores invalid flag colors", () => {
+    it("renders the algiz rune when only a sigil is set", () => {
+        const markup = renderVTab({ id: "tab-3", name: "Rune", sigilColor: "#ff5370" });
+
+        expect(markup).toContain("<svg");
+        expect(markup).toContain('stroke="#ff5370"');
+        expect(markup).not.toContain("fa-flag");
+    });
+
+    it("ignores invalid sigil colors", () => {
         const markup = renderVTab({
             id: "tab-2",
             name: "Deploy",
             badges: [{ badgeid: "badge-2", icon: "bell", color: "#4ade80", priority: 2 }],
-            flagColor: "definitely-not-a-color",
+            sigilColor: "definitely-not-a-color",
         });
 
         expect(markup).not.toContain("definitely-not-a-color");
-        expect(markup).not.toContain("fa-flag");
+        expect(markup).not.toContain("<svg");
         expect(markup).toContain("#4ade80");
     });
 });

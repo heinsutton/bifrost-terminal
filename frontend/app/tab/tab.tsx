@@ -41,7 +41,7 @@ interface TabVProps {
     tabWidth: number;
     isNew: boolean;
     badges?: Badge[] | null;
-    flagColor?: string | null;
+    sigilColor?: string | null;
     onClick: () => void;
     onClose: (event: React.MouseEvent<HTMLButtonElement, MouseEvent> | null) => void;
     onDragStart: (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
@@ -61,7 +61,7 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
         tabWidth,
         isNew,
         badges,
-        flagColor,
+        sigilColor,
         onClick,
         onClose,
         onDragStart,
@@ -204,7 +204,7 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
                 >
                     {displayName}
                 </div>
-                <TabBadges badges={badges} flagColor={flagColor} />
+                <TabBadges badges={badges} sigilColor={sigilColor} />
                 <Button
                     className="ghost grey close"
                     onClick={onClose}
@@ -239,14 +239,14 @@ const TabInner = forwardRef<HTMLDivElement, TabProps>((props, ref) => {
     const [tabData, _] = env.wos.useWaveObjectValue<Tab>(makeORef("tab", id));
     const badges = useAtomValue(getTabBadgeAtom(id, env));
 
-    const rawFlagColor = tabData?.meta?.["tab:flagcolor"];
-    let flagColor: string | null = null;
-    if (rawFlagColor) {
+    const rawSigilColor = tabData?.meta?.["tab:flagcolor"];
+    let sigilColor: string | null = null;
+    if (rawSigilColor) {
         try {
-            validateCssColor(rawFlagColor);
-            flagColor = rawFlagColor;
+            validateCssColor(rawSigilColor);
+            sigilColor = rawSigilColor;
         } catch {
-            flagColor = null;
+            sigilColor = null;
         }
     }
 
@@ -303,7 +303,7 @@ const TabInner = forwardRef<HTMLDivElement, TabProps>((props, ref) => {
             tabWidth={tabWidth}
             isNew={isNew}
             badges={badges}
-            flagColor={flagColor}
+            sigilColor={sigilColor}
             onClick={handleTabClick}
             onClose={onClose}
             onDragStart={onDragStart}

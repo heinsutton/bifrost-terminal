@@ -14,7 +14,7 @@ export interface VTabItem {
     name: string;
     badge?: Badge | null;
     badges?: Badge[] | null;
-    flagColor?: string | null;
+    sigilColor?: string | null;
 }
 
 interface VTabProps {
@@ -58,14 +58,14 @@ export function VTab({
     const editableTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const badges = tab.badges ?? (tab.badge ? [tab.badge] : null);
 
-    const rawFlagColor = tab.flagColor;
-    let flagColor: string | null = null;
-    if (rawFlagColor) {
+    const rawSigilColor = tab.sigilColor;
+    let sigilColor: string | null = null;
+    if (rawSigilColor) {
         try {
-            validateCssColor(rawFlagColor);
-            flagColor = rawFlagColor;
+            validateCssColor(rawSigilColor);
+            sigilColor = rawSigilColor;
         } catch {
-            flagColor = null;
+            sigilColor = null;
         }
     }
 
@@ -182,7 +182,7 @@ export function VTab({
             />
             <TabBadges
                 badges={badges}
-                flagColor={flagColor}
+                sigilColor={sigilColor}
                 className="mr-1 min-w-[16px] shrink-0 static top-auto left-auto z-auto h-[16px] w-auto translate-y-0 justify-start px-[2px] py-[1px] [&_i]:text-[10px]"
             />
             <div

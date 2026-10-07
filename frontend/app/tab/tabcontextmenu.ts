@@ -7,14 +7,14 @@ import { fireAndForget } from "@/util/util";
 import { makeORef } from "../store/wos";
 import type { TabEnv } from "./tab";
 
-const FlagColors: { label: string; value: string }[] = [
-    { label: "Green", value: "#58C142" },
-    { label: "Teal", value: "#00FFDB" },
-    { label: "Blue", value: "#429DFF" },
-    { label: "Purple", value: "#BF55EC" },
-    { label: "Red", value: "#FF453A" },
-    { label: "Orange", value: "#FF9500" },
-    { label: "Yellow", value: "#FFE900" },
+const SigilColors: { label: string; value: string }[] = [
+    { label: "Red", value: "#ff5370" },
+    { label: "Ember", value: "#ff9e64" },
+    { label: "Yellow", value: "#ffe066" },
+    { label: "Green", value: "#7ee787" },
+    { label: "Aurora", value: "#5ef3d6" },
+    { label: "Sky", value: "#4da2ff" },
+    { label: "Purple", value: "#b57bee" },
 ];
 
 export function buildTabBarContextMenu(env: TabEnv): ContextMenuItem[] {
@@ -52,28 +52,28 @@ export function buildTabContextMenu(
         { type: "separator" }
     );
     const tabORef = makeORef("tab", id);
-    const currentFlagColor = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:flagcolor")) ?? null;
-    const flagSubmenu: ContextMenuItem[] = [
+    const currentSigilColor = globalStore.get(getOrefMetaKeyAtom(tabORef, "tab:flagcolor")) ?? null;
+    const sigilSubmenu: ContextMenuItem[] = [
         {
             label: "None",
             type: "checkbox",
-            checked: currentFlagColor == null,
+            checked: currentSigilColor == null,
             click: () =>
                 fireAndForget(() =>
                     env.rpc.SetMetaCommand(TabRpcClient, { oref: tabORef, meta: { "tab:flagcolor": null } })
                 ),
         },
-        ...FlagColors.map((fc) => ({
+        ...SigilColors.map((fc) => ({
             label: fc.label,
             type: "checkbox" as const,
-            checked: currentFlagColor === fc.value,
+            checked: currentSigilColor === fc.value,
             click: () =>
                 fireAndForget(() =>
                     env.rpc.SetMetaCommand(TabRpcClient, { oref: tabORef, meta: { "tab:flagcolor": fc.value } })
                 ),
         })),
     ];
-    menu.push({ label: "Flag Tab", type: "submenu", submenu: flagSubmenu }, { type: "separator" });
+    menu.push({ label: "Set Sigil", type: "submenu", submenu: sigilSubmenu }, { type: "separator" });
     const fullConfig = globalStore.get(env.atoms.fullConfigAtom);
     const backgrounds = fullConfig?.backgrounds ?? {};
     const bgKeys = Object.keys(backgrounds).filter((k) => backgrounds[k] != null);

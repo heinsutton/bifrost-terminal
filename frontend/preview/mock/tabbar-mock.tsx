@@ -12,7 +12,7 @@ type PreviewTabEntry = {
     tabId: string;
     tabName: string;
     badges?: Badge[] | null;
-    flagColor?: string | null;
+    sigilColor?: string | null;
 };
 
 function badgeBlockId(tabId: string, badgeId: string): string {
@@ -27,7 +27,7 @@ function makeTabWaveObj(tab: PreviewTabEntry): Tab {
         version: 1,
         name: tab.tabName,
         blockids,
-        meta: tab.flagColor ? { "tab:flagcolor": tab.flagColor } : {},
+        meta: tab.sigilColor ? { "tab:flagcolor": tab.sigilColor } : {},
     } as Tab;
 }
 
@@ -63,7 +63,7 @@ export const TabBarMockTabs: PreviewTabEntry[] = [
         badges: [
             { badgeid: "01958000-0000-7000-0000-000000000002", icon: "circle-check", color: "#4ade80", priority: 3 },
         ],
-        flagColor: "#429dff",
+        sigilColor: "#4da2ff",
     },
     {
         tabId: "preview-tab-4",
@@ -74,7 +74,7 @@ export const TabBarMockTabs: PreviewTabEntry[] = [
         ],
     },
     { tabId: "preview-tab-5", tabName: "Wave AI" },
-    { tabId: "preview-tab-6", tabName: "Preview", flagColor: "#bf55ec" },
+    { tabId: "preview-tab-6", tabName: "Preview", sigilColor: "#b57bee" },
 ];
 
 function makeMockWorkspace(tabIds: string[]): Workspace {

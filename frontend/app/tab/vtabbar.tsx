@@ -134,14 +134,14 @@ function VTabWrapper({
         };
     }, [tabModel]);
 
-    const rawFlagColor = tabData?.meta?.["tab:flagcolor"];
-    let flagColor: string | null = null;
-    if (rawFlagColor) {
+    const rawSigilColor = tabData?.meta?.["tab:flagcolor"];
+    let sigilColor: string | null = null;
+    if (rawSigilColor) {
         try {
-            validateCssColor(rawFlagColor);
-            flagColor = rawFlagColor;
+            validateCssColor(rawSigilColor);
+            sigilColor = rawSigilColor;
         } catch {
-            flagColor = null;
+            sigilColor = null;
         }
     }
 
@@ -149,7 +149,7 @@ function VTabWrapper({
         id: tabId,
         name: tabData?.name ?? "",
         badges,
-        flagColor,
+        sigilColor,
     };
 
     const handleContextMenu = useCallback(
