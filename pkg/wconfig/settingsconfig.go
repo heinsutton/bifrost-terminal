@@ -57,18 +57,19 @@ type AiSettingsType struct {
 }
 
 type SettingsType struct {
-	AppClear                      bool   `json:"app:*,omitempty"`
-	AppGlobalHotkey               string `json:"app:globalhotkey,omitempty"`
-	AppDismissArchitectureWarning bool   `json:"app:dismissarchitecturewarning,omitempty"`
-	AppDefaultNewBlock            string `json:"app:defaultnewblock,omitempty"`
-	AppShowOverlayBlockNums       *bool  `json:"app:showoverlayblocknums,omitempty"`
-	AppCtrlVPaste                 *bool  `json:"app:ctrlvpaste,omitempty"`
-	AppConfirmQuit                *bool  `json:"app:confirmquit,omitempty"`
-	AppHideAiButton               bool   `json:"app:hideaibutton,omitempty"`
-	AppDisableCtrlShiftArrows     bool   `json:"app:disablectrlshiftarrows,omitempty"`
-	AppDisableCtrlShiftDisplay    bool   `json:"app:disablectrlshiftdisplay,omitempty"`
-	AppFocusFollowsCursor         string `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
-	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
+	AppClear                      bool     `json:"app:*,omitempty"`
+	AppGlobalHotkey               string   `json:"app:globalhotkey,omitempty"`
+	AppDismissArchitectureWarning bool     `json:"app:dismissarchitecturewarning,omitempty"`
+	AppDefaultNewBlock            string   `json:"app:defaultnewblock,omitempty"`
+	AppShowOverlayBlockNums       *bool    `json:"app:showoverlayblocknums,omitempty"`
+	AppCtrlVPaste                 *bool    `json:"app:ctrlvpaste,omitempty"`
+	AppConfirmQuit                *bool    `json:"app:confirmquit,omitempty"`
+	AppHideAiButton               bool     `json:"app:hideaibutton,omitempty"`
+	AppDisableCtrlShiftArrows     bool     `json:"app:disablectrlshiftarrows,omitempty"`
+	AppDisableCtrlShiftDisplay    bool     `json:"app:disablectrlshiftdisplay,omitempty"`
+	AppFocusFollowsCursor         string   `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
+	AppTabBar                     string   `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
+	AppNotifyBadges               []string `json:"app:notifybadges,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
 

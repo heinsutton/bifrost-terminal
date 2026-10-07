@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld("api", {
     deleteWorkspace: (workspaceId) => ipcRenderer.send("delete-workspace", workspaceId),
     setActiveTab: (tabId, peek) => ipcRenderer.send("set-active-tab", tabId, peek),
     onFocusStripPeek: (callback) => ipcRenderer.on("focus-strip-peek", () => callback()),
+    onFocusBlock: (callback) => ipcRenderer.on("focus-block", (_event, blockId) => callback(blockId)),
     createTab: () => ipcRenderer.send("create-tab"),
     closeTab: (workspaceId, tabId, confirmClose) => ipcRenderer.invoke("close-tab", workspaceId, tabId, confirmClose),
     popOutTab: (tabId: string) => ipcRenderer.send("popout-tab", tabId),

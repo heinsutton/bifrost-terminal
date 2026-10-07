@@ -9,6 +9,7 @@ import os from "os";
 import path from "path";
 import { WaveDevVarName, WaveDevViteVarName } from "../frontend/util/isdev";
 import * as keyutil from "../frontend/util/keyutil";
+import packageJson from "../package.json";
 
 // This is a little trick to ensure that Electron puts all its runtime data into a subdirectory to avoid conflicts with our own data.
 // On macOS, it will store to ~/Library/Application \Support/waveterm/electron
@@ -33,6 +34,9 @@ const waveDirName = `${waveDirNamePrefix}${waveDirNameSuffix ? `-${waveDirNameSu
 const paths = envPaths("waveterm", { suffix: waveDirNameSuffix });
 
 app.setName(isDev ? "Bifrost Terminal (Dev)" : "Bifrost Terminal");
+if (process.platform === "win32") {
+    app.setAppUserModelId(isDev ? `${packageJson.build.appId}.dev` : packageJson.build.appId);
+}
 // Legacy folder name kept so Local Storage and IndexedDB survive the app rename.
 app.setPath("userData", path.join(app.getPath("appData"), isDev ? "Wave (Dev)" : "Wave"));
 const unamePlatform = process.platform;

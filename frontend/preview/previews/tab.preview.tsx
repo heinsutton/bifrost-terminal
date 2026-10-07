@@ -32,9 +32,15 @@ const tabDefs: PreviewTabEntry[] = [
         tabName: "My Tab 2",
         active: false,
         badges: [
-            { badgeid: "b2", icon: "bell", color: "#4ade80", priority: 3 },
+            { badgeid: "b2", icon: "bell-exclamation", color: "#4ade80", priority: 20 },
             { badgeid: "b1", icon: "circle-small", color: "red", priority: 1 },
         ],
+    },
+    {
+        tabId: "preview-tab-2c",
+        tabName: "Done Tab",
+        active: false,
+        badges: [{ badgeid: "b1", icon: "check", color: "#4ade80", priority: 10 }],
     },
     { tabId: "preview-tab-3", tabName: "T3", active: false, sigilColor: "#7ee787" },
     {

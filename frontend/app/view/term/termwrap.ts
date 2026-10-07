@@ -18,6 +18,7 @@ import {
     WOS,
 } from "@/store/global";
 import * as services from "@/store/services";
+import { AttentionColor } from "@/util/badgekind";
 import { PLATFORM, PlatformMacOS } from "@/util/platformutil";
 import { base64ToArray, fireAndForget } from "@/util/util";
 import { FitAddon } from "@xterm/addon-fit";
@@ -257,7 +258,7 @@ export class TermWrap {
                 const bellIndicatorEnabled =
                     globalStore.get(getOverrideConfigAtom(this.blockId, "term:bellindicator")) ?? false;
                 if (bellIndicatorEnabled) {
-                    setBadge(this.blockId, { icon: "bell", color: "#fbbf24", priority: 1 });
+                    setBadge(this.blockId, { icon: "bell", color: AttentionColor, priority: 1 });
                 }
                 return true;
             })

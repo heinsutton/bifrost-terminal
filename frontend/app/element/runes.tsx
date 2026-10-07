@@ -36,6 +36,7 @@ function RuneSvg({ path, color, size = "1em", className, style, onClick }: RuneS
 
 const RuneGlyphs: Record<string, string> = {
     algiz: "M6 11V1M6 5L2 1.5M6 5L10 1.5",
+    naudiz: "M6 1V11M3.5 4.5L8.5 7.5",
     dagaz: "M2 1V11M10 1V11M2 1L10 11M10 1L2 11",
     ansuz: "M3 1V11M3 1.5L9 5M3 5.5L9 9",
     tiwaz: "M6 11V1M2 5L6 1L10 5",
@@ -57,6 +58,10 @@ export function AlgizRune({ color }: { color: string }) {
 
 export function DagazRune(props: Omit<RuneSvgProps, "path">) {
     return <RuneSvg path={RuneGlyphs.dagaz} {...props} />;
+}
+
+export function BadgeRune({ rune, color, size = 12 }: { rune: "naudiz" | "dagaz"; color: string; size?: number }) {
+    return <RuneSvg path={RuneGlyphs[rune]} color={color} size={size} />;
 }
 
 export const DagazWorkspaceIcon = "rune@dagaz";

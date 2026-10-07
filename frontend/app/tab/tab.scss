@@ -139,3 +139,10 @@ body.nohover .tab.active .close {
     animation: expandWidthAndFadeIn 0.1s forwards;
 }
 
+.tab[data-badge-kind] .tab-inner {
+    background: color-mix(in srgb, var(--badge-tint) 18%, transparent);
+}
+
+body:not(.nohover) .tab[data-badge-kind]:hover .tab-inner {
+    background: color-mix(in srgb, var(--badge-tint) 26%, transparent);
+}

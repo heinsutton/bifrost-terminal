@@ -4,6 +4,7 @@
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
+import { cmpBadge } from "@/util/badgekind";
 import { fireAndForget, NullAtom } from "@/util/util";
 import { atom, Atom, PrimitiveAtom } from "jotai";
 import { v7 as uuidv7, version as uuidVersion } from "uuid";
@@ -225,16 +226,6 @@ function setupBadgesSubscription() {
             }
         },
     });
-}
-
-function cmpBadge(a: Badge, b: Badge): number {
-    if (a.priority !== b.priority) {
-        return a.priority > b.priority ? 1 : -1;
-    }
-    if (a.badgeid !== b.badgeid) {
-        return a.badgeid > b.badgeid ? 1 : -1;
-    }
-    return 0;
 }
 
 function sortBadges(badges: Badge[]): Badge[] {

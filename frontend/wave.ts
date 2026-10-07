@@ -31,6 +31,7 @@ import {
     initGlobal,
     initGlobalWaveEventSubs,
     loadConnStatus,
+    refocusNode,
     subscribeToConnEvents,
 } from "@/store/global";
 import { activeTabIdAtom } from "@/store/tab-model";
@@ -197,6 +198,7 @@ async function initWave(initOpts: WaveInitOpts) {
     registerGlobalKeys();
     registerElectronReinjectKeyHandler();
     registerFocusStripPeekHandler();
+    getApi().onFocusBlock((blockId) => refocusNode(blockId));
     registerControlShiftStateUpdateHandler();
     registerDropQueryHandler();
     registerPaneDropHandlers();

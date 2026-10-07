@@ -954,6 +954,51 @@ export function getAllWaveWindows(): WaveBrowserWindow[] {
     return Array.from(waveWindowMap.values());
 }
 
+export async function revealBlock(tabId: string, blockId: string) {
+    let ww = getWaveWindowByTabId(tabId);
+    if (ww == null) {
+        const workspaces = await WorkspaceService.ListWorkspaces();
+        let workspaceId: string = null;
+        for (const wse of workspaces ?? []) {
+            const workspace = await WorkspaceService.GetWorkspace(wse.workspaceid);
+            if (workspace?.tabids?.includes(tabId)) {
+                workspaceId = workspace.oid;
+                break;
+            }
+        }
+        if (workspaceId == null) {
+            return;
+        }
+        const ownerWindowId = await getTabOwnerWindowId(workspaceId, tabId);
+        ww = getWaveWindowById(ownerWindowId) ?? getMainWaveWindowByWorkspaceId(workspaceId);
+        if (ww == null) {
+            ww = getWaveWindowsByFocusRecency()[0];
+            if (ww == null) {
+                return;
+            }
+            await ww.switchWorkspace(workspaceId);
+            ww = getWaveWindowByTabId(tabId) ?? getMainWaveWindowByWorkspaceId(workspaceId) ?? ww;
+        }
+    }
+    if (ww.isDestroyed()) {
+        return;
+    }
+    if (ww.isMinimized()) {
+        ww.restore();
+    }
+    ww.show();
+    ww.focus();
+    await ww.setActiveTab(tabId, true);
+    const tabView = ww.allLoadedTabViews.get(tabId);
+    if (tabView == null || tabView.isDestroyed) {
+        return;
+    }
+    await tabView.waveReadyPromise;
+    if (blockId != null && !tabView.webContents.isDestroyed()) {
+        tabView.webContents.send("focus-block", blockId);
+    }
+}
+
 export async function createWindowForWorkspace(workspaceId: string) {
     const newWin = await WindowService.CreateWindow(null, workspaceId);
     if (!newWin) {

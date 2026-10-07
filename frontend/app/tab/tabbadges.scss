@@ -1,0 +1,22 @@
+// Copyright 2026, Command Line Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+@keyframes badgePulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 transparent;
+        filter: brightness(1);
+    }
+    50% {
+        box-shadow: 0 0 8px 2px color-mix(in srgb, var(--badge-tint) 65%, transparent);
+        filter: brightness(1.6);
+    }
+}
+
+.badge-pulse {
+    animation: badgePulse 0.8s ease-in-out 3;
+}
+
+.prefers-reduced-motion .badge-pulse {
+    animation: none;
+}

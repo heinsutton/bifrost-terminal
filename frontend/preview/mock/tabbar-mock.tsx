@@ -51,18 +51,16 @@ export const TabBarMockTabs: PreviewTabEntry[] = [
         badges: [
             {
                 badgeid: "01958000-0000-7000-0000-000000000001",
-                icon: "triangle-exclamation",
+                icon: "bell-exclamation",
                 color: "#f59e0b",
-                priority: 2,
+                priority: 20,
             },
         ],
     },
     {
         tabId: "preview-tab-3",
         tabName: "Deploy",
-        badges: [
-            { badgeid: "01958000-0000-7000-0000-000000000002", icon: "circle-check", color: "#4ade80", priority: 3 },
-        ],
+        badges: [{ badgeid: "01958000-0000-7000-0000-000000000002", icon: "check", color: "#4ade80", priority: 10 }],
         sigilColor: "#4da2ff",
     },
     {

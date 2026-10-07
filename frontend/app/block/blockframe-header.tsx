@@ -10,6 +10,7 @@ import {
 } from "@/app/block/blockutil";
 import { ConnectionButton } from "@/app/block/connectionbutton";
 import { DurableSessionFlyover } from "@/app/block/durable-session-flyover";
+import { BadgeRune } from "@/app/element/runes";
 import { getBlockBadgeAtom } from "@/app/store/badge";
 import { getPaneMoveMenuItems } from "@/app/store/blockmove";
 import {
@@ -26,6 +27,7 @@ import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { IconButton } from "@/element/iconbutton";
 import { NodeModel } from "@/layout/index";
 import * as util from "@/util/util";
+import { getBadgeVisual } from "@/util/badgekind";
 import { cn, makeIconClass } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
@@ -307,6 +309,7 @@ const BlockFrame_Header = ({
     const termConfigedDurable = util.useAtomValueSafe(viewModel?.termConfigedDurable);
     const hideViewName = util.useAtomValueSafe(viewModel?.hideViewName);
     const badge = jotai.useAtomValue(getBlockBadgeAtom(useTermHeader ? nodeModel.blockId : null));
+    const badgeVisual = getBadgeVisual(badge);
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
     const prevMagifiedState = React.useRef(magnified);
     const manageConnection = util.useAtomValueSafe(viewModel?.manageConnection);
@@ -386,7 +389,11 @@ const BlockFrame_Header = ({
             )}
             {useTermHeader && badge && (
                 <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#ff9e64" }}>
-                    <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
+                    {badgeVisual != null ? (
+                        <BadgeRune rune={badgeVisual.rune} color={badgeVisual.color} />
+                    ) : (
+                        <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
+                    )}
                 </div>
             )}
             {useTermHeader && isRenaming && (

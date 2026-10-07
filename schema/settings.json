@@ -50,6 +50,12 @@
             "left"
           ]
         },
+        "app:notifybadges": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },

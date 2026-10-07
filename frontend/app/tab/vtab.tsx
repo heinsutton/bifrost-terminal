@@ -5,7 +5,7 @@ import { refocusNode } from "@/app/store/global";
 import { validateCssColor } from "@/util/color-validator";
 import { cn } from "@/util/util";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TabBadges } from "./tabbadges";
+import { getTabBadgeTint, TabBadges, useBadgePulse } from "./tabbadges";
 
 const RenameFocusDelayMs = 50;
 
@@ -63,6 +63,9 @@ export function VTab({
             sigilColor = null;
         }
     }
+
+    const badgeTint = getTabBadgeTint(badges);
+    const badgePulsing = useBadgePulse(badgeTint?.badgeid);
 
     useEffect(() => {
         setOriginalName(tab.name);
@@ -169,6 +172,21 @@ export function VTab({
             {!active && !isReordering && (
                 <div className="pointer-events-none absolute inset-x-1 inset-y-[4px] rounded-sm bg-transparent transition-colors group-hover:bg-foreground/10" />
             )}
+            {badgeTint != null && (
+                <div
+                    data-badge-kind={badgeTint.kind}
+                    className={cn(
+                        "pointer-events-none absolute inset-x-1 inset-y-[4px] rounded-sm",
+                        badgePulsing && "badge-pulse"
+                    )}
+                    style={
+                        {
+                            "--badge-tint": badgeTint.color,
+                            backgroundColor: "color-mix(in srgb, var(--badge-tint) 18%, transparent)",
+                        } as React.CSSProperties
+                    }
+                />
+            )}
             <div
                 className={cn(
                     "pointer-events-none absolute bottom-0 left-[5%] right-[5%] h-px bg-border/70",
@@ -179,6 +197,7 @@ export function VTab({
                 badges={badges}
                 sigilColor={sigilColor}
                 className="mr-1 min-w-[16px] shrink-0 static top-auto left-auto z-auto h-[16px] w-auto translate-y-0 justify-start px-[2px] py-[1px] [&_i]:text-[10px]"
+                runeSize={10}
             />
             <div
                 ref={editableRef}

@@ -13,7 +13,7 @@ import clsx from "clsx";
 import { useAtomValue } from "jotai";
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { makeORef } from "../store/wos";
-import { TabBadges } from "./tabbadges";
+import { getTabBadgeTint, TabBadges, useBadgePulse } from "./tabbadges";
 import "./tab.scss";
 import { buildTabContextMenu } from "./tabcontextmenu";
 
@@ -184,6 +184,9 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
         event.stopPropagation();
     };
 
+    const badgeTint = getTabBadgeTint(badges);
+    const badgePulsing = useBadgePulse(badgeTint?.badgeid);
+
     return (
         <div
             ref={tabRef}
@@ -192,13 +195,15 @@ const TabV = forwardRef<HTMLDivElement, TabVProps>((props, ref) => {
                 dragging: isDragging,
                 "new-tab": isNew,
             })}
+            data-badge-kind={badgeTint?.kind}
+            style={badgeTint != null ? ({ "--badge-tint": badgeTint.color } as React.CSSProperties) : undefined}
             onMouseDown={onDragStart}
             onClick={onClick}
             onContextMenu={onContextMenu}
             data-tab-id={tabId}
         >
             {showDivider && <div className="tab-divider" />}
-            <div className="tab-inner">
+            <div className={clsx("tab-inner", { "badge-pulse": badgePulsing })}>
                 <div
                     ref={editableRef}
                     className={clsx("name", { focused: isEditable })}

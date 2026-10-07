@@ -123,6 +123,7 @@ declare global {
         deleteWorkspace: (workspaceId: string) => void; // delete-workspace
         setActiveTab: (tabId: string, peek?: boolean) => void; // set-active-tab
         onFocusStripPeek: (callback: () => void) => void; // focus-strip-peek
+        onFocusBlock: (callback: (blockId: string) => void) => void; // focus-block
         createTab: () => void; // create-tab
         closeTab: (workspaceId: string, tabId: string, confirmClose: boolean) => Promise<boolean>; // close-tab
         setWindowInitStatus: (status: "ready" | "wave-ready") => void; // set-window-init-status

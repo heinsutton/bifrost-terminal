@@ -26,6 +26,7 @@ import {
     setWasActive,
     setWasInFg,
 } from "./emain-activity";
+import { initBadgeNotifications } from "./emain-badgenotify";
 import { initDragDropHandlers } from "./emain-dragdrop";
 import { initIpcHandlers } from "./emain-ipc";
 import { log } from "./emain-log";
@@ -412,6 +413,7 @@ async function appMain() {
         initElectronWshrpc(ElectronWshClient, { authKey: AuthKey });
         initMenuEventSubscriptions();
         initPopOutWindowEventSubscriptions();
+        initBadgeNotifications();
     } catch (e) {
         console.log("error initializing wshrpc", e);
     }

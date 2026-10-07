@@ -36,7 +36,7 @@ describe("VTab badges", () => {
         const markup = renderVTab({
             id: "tab-1",
             name: "Build Logs",
-            badges: [{ badgeid: "badge-1", icon: "bell", color: "#f59e0b", priority: 2 }],
+            badges: [{ badgeid: "badge-1", icon: "star", color: "#f59e0b", priority: 2 }],
             sigilColor: "#4da2ff",
         });
 
@@ -53,11 +53,35 @@ describe("VTab badges", () => {
         expect(markup).not.toContain("fa-flag");
     });
 
+    it("renders the naudiz rune and tint for attention badges", () => {
+        const markup = renderVTab({
+            id: "tab-4",
+            name: "Agent",
+            badges: [{ badgeid: "badge-4", icon: "bell-exclamation", color: "#123456", priority: 20 }],
+        });
+
+        expect(markup).toContain('data-badge-kind="attention"');
+        expect(markup).toContain('stroke="#ff9e64"');
+        expect(markup).not.toContain("#123456");
+        expect(markup).not.toContain("fa-bell-exclamation");
+    });
+
+    it("renders the dagaz rune and tint for done badges", () => {
+        const markup = renderVTab({
+            id: "tab-5",
+            name: "Agent",
+            badges: [{ badgeid: "badge-5", icon: "check", color: "#123456", priority: 10 }],
+        });
+
+        expect(markup).toContain('data-badge-kind="done"');
+        expect(markup).toContain('stroke="#7ee787"');
+    });
+
     it("ignores invalid sigil colors", () => {
         const markup = renderVTab({
             id: "tab-2",
             name: "Deploy",
-            badges: [{ badgeid: "badge-2", icon: "bell", color: "#4ade80", priority: 2 }],
+            badges: [{ badgeid: "badge-2", icon: "star", color: "#4ade80", priority: 2 }],
             sigilColor: "definitely-not-a-color",
         });
 

@@ -42,6 +42,7 @@ const previewElectronApi: ElectronApi = {
     deleteWorkspace: (_workspaceId: string) => {},
     setActiveTab: (_tabId: string, _peek?: boolean) => {},
     onFocusStripPeek: (_callback: () => void) => {},
+    onFocusBlock: (_callback: (blockId: string) => void) => {},
     createTab: () => {},
     closeTab: (_workspaceId: string, _tabId: string, _confirmClose: boolean) => Promise.resolve(false),
     setWindowInitStatus: (_status: "ready" | "wave-ready") => {},
