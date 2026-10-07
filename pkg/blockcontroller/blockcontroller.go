@@ -71,6 +71,7 @@ type Controller interface {
 	Stop(graceful bool, newStatus string, destroy bool)
 	GetRuntimeStatus() *BlockControllerRuntimeStatus // does not return nil
 	GetConnName() string
+	SetTabId(tabId string) // the block can move to another tab while its controller keeps running
 	SendInput(input *BlockInputUnion) error
 }
 
@@ -241,6 +242,7 @@ func ResyncController(ctx context.Context, tabId string, blockId string, rtOpts 
 	var controller Controller
 	if existing != nil {
 		controller = existing
+		controller.SetTabId(tabId)
 	} else {
 		// Create new controller based on type
 		switch controllerName {

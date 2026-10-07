@@ -108,6 +108,12 @@ func (dsc *DurableShellController) GetRuntimeStatus() *BlockControllerRuntimeSta
 	return &rtn
 }
 
+func (dsc *DurableShellController) SetTabId(tabId string) {
+	dsc.WithLock(func() {
+		dsc.TabId = tabId
+	})
+}
+
 func (dsc *DurableShellController) GetConnName() string {
 	dsc.Lock.Lock()
 	defer dsc.Lock.Unlock()

@@ -50,7 +50,7 @@ func tabIndicatorRun(cmd *cobra.Command, args []string) (rtnErr error) {
 
 	tabId := tabIndicatorTabId
 	if tabId == "" {
-		tabId = os.Getenv("WAVETERM_TABID")
+		tabId = getTabIdFromEnv()
 	}
 	if tabId == "" {
 		return fmt.Errorf("no tab id specified (use --tabid or set WAVETERM_TABID)")

@@ -160,7 +160,7 @@ func aiRun(cmd *cobra.Command, args []string) (rtnErr error) {
 		})
 	}
 
-	tabId := os.Getenv("WAVETERM_TABID")
+	tabId := getTabIdFromEnv()
 	if tabId == "" {
 		return fmt.Errorf("WAVETERM_TABID environment variable not set")
 	}

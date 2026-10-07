@@ -141,6 +141,12 @@ func (sc *ShellController) GetConnName() string {
 	return sc.ConnName
 }
 
+func (sc *ShellController) SetTabId(tabId string) {
+	sc.WithLock(func() {
+		sc.TabId = tabId
+	})
+}
+
 func (sc *ShellController) SendInput(inputUnion *BlockInputUnion) error {
 	var shellInputCh chan *BlockInputUnion
 	sc.WithLock(func() {
@@ -179,8 +185,10 @@ func (sc *ShellController) sendUpdate_nolock() {
 
 func (sc *ShellController) UpdateControllerAndSendUpdate(updateFn func() bool) {
 	var sendUpdate bool
+	var tabId string
 	sc.WithLock(func() {
 		sendUpdate = updateFn()
+		tabId = sc.TabId
 	})
 	if sendUpdate {
 		rtStatus := sc.GetRuntimeStatus()
@@ -188,7 +196,7 @@ func (sc *ShellController) UpdateControllerAndSendUpdate(updateFn func() bool) {
 		wps.Broker.Publish(wps.WaveEvent{
 			Event: wps.Event_ControllerStatus,
 			Scopes: []string{
-				waveobj.MakeORef(waveobj.OType_Tab, sc.TabId).String(),
+				waveobj.MakeORef(waveobj.OType_Tab, tabId).String(),
 				waveobj.MakeORef(waveobj.OType_Block, sc.BlockId).String(),
 			},
 			Data: rtStatus,

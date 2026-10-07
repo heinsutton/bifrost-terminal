@@ -288,6 +288,20 @@ func (c *TsunamiController) GetConnName() string {
 	return c.connName
 }
 
+func (c *TsunamiController) SetTabId(tabId string) {
+	c.WithStatusLock(func() {
+		c.tabId = tabId
+	})
+}
+
+func (c *TsunamiController) getTabId() string {
+	var tabId string
+	c.WithStatusLock(func() {
+		tabId = c.tabId
+	})
+	return tabId
+}
+
 func (c *TsunamiController) SendInput(input *BlockInputUnion) error {
 	return fmt.Errorf("tsunami controller send input not implemented")
 }
@@ -422,7 +436,7 @@ func (c *TsunamiController) sendStatusUpdate() {
 	wps.Broker.Publish(wps.WaveEvent{
 		Event: wps.Event_ControllerStatus,
 		Scopes: []string{
-			waveobj.MakeORef(waveobj.OType_Tab, c.tabId).String(),
+			waveobj.MakeORef(waveobj.OType_Tab, c.getTabId()).String(),
 			waveobj.MakeORef(waveobj.OType_Block, c.blockId).String(),
 		},
 		Data: rtStatus,

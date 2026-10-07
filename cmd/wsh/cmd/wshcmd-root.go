@@ -224,8 +224,18 @@ func resolveSimpleId(id string) (*waveobj.ORef, error) {
 	return &oref, nil
 }
 
+// returns the tab that currently contains this block (a pane can be moved to another tab after its shell started);
+// falls back to WAVETERM_TABID when there is no block id or the lookup fails
 func getTabIdFromEnv() string {
-	return os.Getenv("WAVETERM_TABID")
+	envTabId := os.Getenv("WAVETERM_TABID")
+	if os.Getenv("WAVETERM_BLOCKID") == "" || RpcClient == nil {
+		return envTabId
+	}
+	oref, err := resolveSimpleId("tab")
+	if err != nil || oref == nil || oref.OID == "" {
+		return envTabId
+	}
+	return oref.OID
 }
 
 // this will send wsh activity to the client running on *your* local machine (it does not contact any wave cloud infrastructure)
