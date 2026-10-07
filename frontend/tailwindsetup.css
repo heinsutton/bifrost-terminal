@@ -6,35 +6,35 @@
 @source "../node_modules/streamdown/dist/index.js";
 
 @theme {
-    --color-background: rgb(34, 34, 34);
-    --color-foreground: #f7f7f7;
-    --color-white: #f7f7f7;
-    --color-primary: #f7f7f7;
-    --color-muted-foreground: rgb(195, 200, 194);
-    --color-secondary: rgb(195, 200, 194);
-    --color-muted: rgb(140, 145, 140);
-    --color-accent-50: rgb(236, 253, 232);
-    --color-accent-100: rgb(209, 250, 202);
-    --color-accent-200: rgb(167, 243, 168);
-    --color-accent-300: rgb(110, 231, 133);
-    --color-accent-400: rgb(88, 193, 66); /* main accent color */
-    --color-accent-500: rgb(63, 162, 51);
-    --color-accent-600: rgb(47, 133, 47);
-    --color-accent-700: rgb(34, 104, 43);
-    --color-accent-800: rgb(22, 81, 35);
-    --color-accent-900: rgb(15, 61, 29);
-    --color-error: rgb(229, 77, 46);
-    --color-warning: rgb(224, 185, 86);
-    --color-success: rgb(78, 154, 6);
-    --color-panel: rgba(31, 33, 31, 0.5);
-    --color-hover: rgba(255, 255, 255, 0.1);
-    --color-border: rgba(255, 255, 255, 0.16);
-    --color-modalbg: #232323;
-    --color-accentbg: rgba(88, 193, 66, 0.5);
-    --color-hoverbg: rgba(255, 255, 255, 0.2);
-    --color-highlightbg: rgba(255, 255, 255, 0.2);
-    --color-accent: rgb(88, 193, 66);
-    --color-accenthover: rgb(118, 223, 96);
+    --color-background: #0e1117;
+    --color-foreground: #e2ecf5;
+    --color-white: #e2ecf5;
+    --color-primary: #e2ecf5;
+    --color-muted-foreground: #a9b8c9;
+    --color-secondary: #a9b8c9;
+    --color-muted: #62758d;
+    --color-accent-50: #effffb;
+    --color-accent-100: #cdfcf3;
+    --color-accent-200: #a0f8e9;
+    --color-accent-300: #7ff5de;
+    --color-accent-400: #5ef3d6; /* main accent color */
+    --color-accent-500: #2fd6b8;
+    --color-accent-600: #20ab94;
+    --color-accent-700: #1c8576;
+    --color-accent-800: #1a675d;
+    --color-accent-900: #164c46;
+    --color-error: #ff5370;
+    --color-warning: #ffe066;
+    --color-success: #7ee787;
+    --color-panel: rgba(23, 27, 38, 0.5);
+    --color-hover: rgba(94, 243, 214, 0.08);
+    --color-border: rgba(58, 78, 104, 0.7);
+    --color-modalbg: #171b26;
+    --color-accentbg: rgba(94, 243, 214, 0.5);
+    --color-hoverbg: rgba(94, 243, 214, 0.08);
+    --color-highlightbg: #282e4a;
+    --color-accent: #5ef3d6;
+    --color-accenthover: #88ffea;
 
     --font-sans: "Inter", sans-serif;
     --font-mono: "Hack", monospace;
@@ -49,22 +49,22 @@
     --radius: 8px;
 
     /* ANSI Colors (Default Dark Palette) */
-    --ansi-black: #757575;
-    --ansi-red: #cc685c;
-    --ansi-green: #76c266;
-    --ansi-yellow: #cbca9b;
-    --ansi-blue: #85aacb;
-    --ansi-magenta: #cc72ca;
-    --ansi-cyan: #74a7cb;
-    --ansi-white: #c1c1c1;
-    --ansi-brightblack: #727272;
-    --ansi-brightred: #cc9d97;
-    --ansi-brightgreen: #a3dd97;
-    --ansi-brightyellow: #cbcaaa;
-    --ansi-brightblue: #9ab6cb;
-    --ansi-brightmagenta: #cc8ecb;
-    --ansi-brightcyan: #b7b8cb;
-    --ansi-brightwhite: #f0f0f0;
+    --ansi-black: #1e2230;
+    --ansi-red: #ff5370;
+    --ansi-green: #7ee787;
+    --ansi-yellow: #ffe066;
+    --ansi-blue: #4da2ff;
+    --ansi-magenta: #b57bee;
+    --ansi-cyan: #5ef3d6;
+    --ansi-white: #dce6f2;
+    --ansi-brightblack: #5f6d88;
+    --ansi-brightred: #ff7597;
+    --ansi-brightgreen: #a5f0a8;
+    --ansi-brightyellow: #fff08a;
+    --ansi-brightblue: #70bcff;
+    --ansi-brightmagenta: #d2a1ff;
+    --ansi-brightcyan: #88ffea;
+    --ansi-brightwhite: #ffffff;
 
     --container-w600: 600px;
     --container-w450: 450px;

@@ -63,7 +63,7 @@ export async function createBuilderWindow(appId: string): Promise<BuilderWindowT
                 ? path.join(getElectronAppBasePath(), "public/logos/wave-logo-dark.png")
                 : undefined,
         show: false,
-        backgroundColor: "#222222",
+        backgroundColor: "#0e1117",
         webPreferences: {
             preload: path.join(getElectronAppBasePath(), "preload", "index.cjs"),
             webviewTag: true,

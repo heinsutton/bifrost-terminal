@@ -383,7 +383,7 @@ const BlockFrame_Header = ({
                 />
             )}
             {useTermHeader && badge && (
-                <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#fbbf24" }}>
+                <div className="pointer-events-none flex items-center px-1" style={{ color: badge.color || "#ff9e64" }}>
                     <i className={makeIconClass(badge.icon, true, { defaultIcon: "circle-small" })} />
                 </div>
             )}

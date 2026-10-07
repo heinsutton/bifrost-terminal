@@ -216,8 +216,8 @@ const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => 
         () => ({
             matchOverviewRuler: "#000000",
             activeMatchColorOverviewRuler: "#000000",
-            activeMatchBorder: "#FF9632",
-            matchBorder: "#FFFF00",
+            activeMatchBorder: "#ff9e64",
+            matchBorder: "#ffe066",
         }),
         []
     );

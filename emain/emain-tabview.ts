@@ -99,7 +99,7 @@ function computeBgColor(fullConfig: FullConfigType): string {
     } else if (isBlur) {
         return "#00000000";
     } else {
-        return "#222222";
+        return "#0e1117";
     }
 }
 

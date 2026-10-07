@@ -60,7 +60,7 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     }
 
     if (blockHighlight && !style.borderColor) {
-        style.borderColor = "rgb(59, 130, 246)";
+        style.borderColor = "var(--accent-color)";
     }
 
     let innerElem = null;
