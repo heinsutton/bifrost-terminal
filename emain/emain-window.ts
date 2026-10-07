@@ -129,6 +129,7 @@ type WindowActionQueueEntry =
           tabId: string;
           setInBackend: boolean;
           primaryStartupTab?: boolean;
+          noFocus?: boolean; // don't focus the tab's webContents (that would raise this window on Windows)
       }
     | {
           op: "createtab";
@@ -437,7 +438,7 @@ export class WaveBrowserWindow extends BaseWindow {
         await this._queueActionInternal({ op: "switchworkspace", workspaceId });
     }
 
-    async setActiveTab(tabId: string, setInBackend: boolean, primaryStartupTab = false) {
+    async setActiveTab(tabId: string, setInBackend: boolean, primaryStartupTab = false, noFocus = false) {
         console.log(
             "setActiveTab",
             tabId,
@@ -446,7 +447,7 @@ export class WaveBrowserWindow extends BaseWindow {
             setInBackend,
             primaryStartupTab ? "(primary startup)" : ""
         );
-        await this._queueActionInternal({ op: "switchtab", tabId, setInBackend, primaryStartupTab });
+        await this._queueActionInternal({ op: "switchtab", tabId, setInBackend, primaryStartupTab, noFocus });
     }
 
     private async initializeTab(tabView: WaveTabView, primaryStartupTab: boolean) {
@@ -524,7 +525,12 @@ export class WaveBrowserWindow extends BaseWindow {
         }
     }
 
-    private async setTabViewIntoWindow(tabView: WaveTabView, tabInitialized: boolean, primaryStartupTab = false) {
+    private async setTabViewIntoWindow(
+        tabView: WaveTabView,
+        tabInitialized: boolean,
+        primaryStartupTab = false,
+        noFocus = false
+    ) {
         if (this.activeTabView == tabView) {
             return;
         }
@@ -548,6 +554,9 @@ export class WaveBrowserWindow extends BaseWindow {
             notifyTabReady(this.waveWindowId, tabView.waveTabId);
         }
 
+        if (noFocus) {
+            return;
+        }
         // something is causing the new tab to lose focus so it requires manual refocusing
         tabView.webContents.focus();
         setTimeout(() => {
@@ -685,7 +694,8 @@ export class WaveBrowserWindow extends BaseWindow {
                 }
                 const [tabView, tabInitialized] = await getOrCreateWebViewForTab(this.waveWindowId, tabId);
                 const primaryStartupTabFlag = entry.op === "switchtab" ? (entry.primaryStartupTab ?? false) : false;
-                await this.setTabViewIntoWindow(tabView, tabInitialized, primaryStartupTabFlag);
+                const noFocusFlag = entry.op === "switchtab" ? (entry.noFocus ?? false) : false;
+                await this.setTabViewIntoWindow(tabView, tabInitialized, primaryStartupTabFlag, noFocusFlag);
             } catch (e) {
                 console.log("error caught in processActionQueue", e);
             } finally {
@@ -1004,7 +1014,9 @@ async function completeTabHandover(
         return;
     }
     if (sourceNewActiveTabId && srcWin.activeTabView?.waveTabId === tabId) {
-        await srcWin.setActiveTab(sourceNewActiveTabId, false);
+        // not awaited (the next tab may still have to load) and no focus: the window taking the tab is
+        // brought to the front right after, and focusing here would raise the source again
+        fireAndForget(() => srcWin.setActiveTab(sourceNewActiveTabId, false, false, true));
     }
     srcWin.removeTabView(tabId, true);
 }
@@ -1075,22 +1087,43 @@ async function finishTabHandover(
         if (await rollbackTabHandover(srcWin, tabId, info.srcIndex, info.prevSrcActiveTabId, info.targetWindowId)) {
             return;
         }
-        let ownerWindowId: string = null;
-        try {
-            ownerWindowId = await getTabOwnerWindowId(srcWin.workspaceId, tabId);
-        } catch (e) {
-            console.log("error finding the owner of a handed-over tab", tabId, e);
-        }
-        if (ownerWindowId === srcWin.waveWindowId) {
-            srcWin.endTabHandoverOut(tabId, true);
+        if (await resumeSourceIfOwner(srcWin, tabId)) {
             return;
         }
     }
+    // source first, then bring the target to the front, so the target ends up in front and focused
+    await completeTabHandover(srcWin, tabId, info.sourceNewActiveTabId, info.closeSource);
     const targetWin = getWaveWindowById(info.targetWindowId);
     if (targetWin != null && !targetWin.isDestroyed()) {
         revealTarget(targetWin);
     }
-    await completeTabHandover(srcWin, tabId, info.sourceNewActiveTabId, info.closeSource);
+}
+
+// after a failed move-back: the source resumes if the backend says it still owns the tab;
+// returns false when another window owns it (the caller then completes the handover)
+async function resumeSourceIfOwner(srcWin: WaveBrowserWindow, tabId: string): Promise<boolean> {
+    let ownerWindowId: string = null;
+    try {
+        ownerWindowId = await getTabOwnerWindowId(srcWin.workspaceId, tabId);
+    } catch (e) {
+        console.log("error finding the owner of a handed-over tab", tabId, e);
+    }
+    if (ownerWindowId !== srcWin.waveWindowId) {
+        return false;
+    }
+    srcWin.endTabHandoverOut(tabId, true);
+    return true;
+}
+
+function bringWindowToFront(ww: WaveBrowserWindow) {
+    if (!ww.isVisible()) {
+        ww.show();
+    }
+    ww.focus();
+    const wc = ww.activeTabView?.webContents;
+    if (wc != null && !wc.isDestroyed()) {
+        wc.focus();
+    }
 }
 
 // moves a tab into a new popped-out window, make-before-break: the source keeps its view until the
@@ -1119,11 +1152,24 @@ export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
         }
         const newWindowId = rtn.window.oid;
         const readyPromise = waitForTabReady(newWindowId, tabId, TabHandoverTimeoutMs);
-        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
-        const workspace = await WorkspaceService.GetWorkspace(rtn.window.workspaceid);
-        // built directly (not via createBrowserWindow, which waits for the tab) so a rollback can destroy it
-        const newWin = new WaveBrowserWindow(rtn.window, fullConfig, { unamePlatform, isPrimaryStartupWindow: false });
-        newWin.setTitle(getPopOutWindowTitle(workspace));
+        let newWin: WaveBrowserWindow = null;
+        try {
+            const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+            const workspace = await WorkspaceService.GetWorkspace(rtn.window.workspaceid);
+            // built directly (not via createBrowserWindow, which waits for the tab) so a rollback can destroy it
+            newWin = new WaveBrowserWindow(rtn.window, fullConfig, { unamePlatform, isPrimaryStartupWindow: false });
+            newWin.setTitle(getPopOutWindowTitle(workspace));
+        } catch (e) {
+            // the backend already gave the tab to the new window: move it back and delete that window
+            console.log("error creating popped-out window", newWindowId, e);
+            if (!(await rollbackTabHandover(srcWin, tabId, srcIndex, prevSrcActiveTabId, newWindowId))) {
+                await WindowService.CloseWindow(newWindowId, true);
+                if (!(await resumeSourceIfOwner(srcWin, tabId))) {
+                    await completeTabHandover(srcWin, tabId, rtn.sourcenewactivetabid, false);
+                }
+            }
+            return;
+        }
         fireAndForget(() => newWin.setActiveTab(tabId, false));
         const ready = await readyPromise;
         const info: TabHandoverInfo = {
@@ -1135,7 +1181,7 @@ export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
             sourceNewActiveTabId: rtn.sourcenewactivetabid,
             closeSource: false,
         };
-        await finishTabHandover(info, ready, (target) => target.show());
+        await finishTabHandover(info, ready, bringWindowToFront);
     } finally {
         // any path that did not complete the handover gives the tab back to the source view
         srcWin.endTabHandoverOut(tabId, true);
@@ -1176,7 +1222,7 @@ export async function moveTabToWindow(srcWin: WaveBrowserWindow, tabId: string, 
             sourceNewActiveTabId: rtn.sourcenewactivetabid,
             closeSource: rtn.sourcewindowempty,
         };
-        await finishTabHandover(info, ready, (target) => target.focus());
+        await finishTabHandover(info, ready, bringWindowToFront);
     } finally {
         // any path that did not complete the handover gives the tab back to the source view
         srcWin.endTabHandoverOut(tabId, true);
