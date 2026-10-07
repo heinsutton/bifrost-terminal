@@ -734,6 +734,23 @@ export async function createWindowForWorkspace(workspaceId: string) {
     newBwin.show();
 }
 
+// reopens the last used named realm if it still exists and no window shows it; otherwise a new blank realm
+async function createWindowOnLastWorkspace(): Promise<WaveWindow> {
+    const clientData = await ClientService.GetClientData();
+    const lastWorkspaceId = clientData?.lastworkspaceid;
+    if (lastWorkspaceId && getWaveWindowByWorkspaceId(lastWorkspaceId) == null) {
+        try {
+            const lastWorkspace = await WorkspaceService.GetWorkspace(lastWorkspaceId);
+            if (lastWorkspace != null) {
+                return await WindowService.CreateWindow(null, lastWorkspaceId);
+            }
+        } catch (e) {
+            console.log("error reopening last workspace", lastWorkspaceId, e);
+        }
+    }
+    return await WindowService.CreateWindow(null, "");
+}
+
 // note, this does not *show* the window.
 // to show, await win.readyPromise and then win.show()
 export async function createBrowserWindow(
@@ -749,7 +766,7 @@ export async function createBrowserWindow(
     if (!workspace) {
         console.log("createBrowserWindow: no workspace, creating new window");
         await WindowService.CloseWindow(waveWindow.oid, true);
-        waveWindow = await WindowService.CreateWindow(null, "");
+        waveWindow = await createWindowOnLastWorkspace();
         workspace = await WorkspaceService.GetWorkspace(waveWindow.workspaceid);
     }
     console.log("createBrowserWindow", waveWindow.oid, workspace.oid, workspace);
@@ -895,7 +912,8 @@ export async function createNewWaveWindow() {
         return;
     }
     console.log("creating new window");
-    const newBrowserWindow = await createBrowserWindow(null, fullConfig, {
+    const newWaveWindow = allWindows.length === 0 ? await createWindowOnLastWorkspace() : null;
+    const newBrowserWindow = await createBrowserWindow(newWaveWindow, fullConfig, {
         unamePlatform,
         isPrimaryStartupWindow: false,
     });

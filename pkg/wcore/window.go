@@ -56,10 +56,18 @@ func SwitchWorkspace(ctx context.Context, windowId string, workspaceId string) (
 	if err != nil {
 		return nil, err
 	}
+	ws, err = ensureWorkspaceHasTab(ctx, ws)
+	if err != nil {
+		return nil, err
+	}
 	window.WorkspaceId = workspaceId
 	err = wstore.DBUpdate(ctx, window)
 	if err != nil {
 		return nil, fmt.Errorf("error updating window: %w", err)
+	}
+	err = setLastWorkspace(ctx, ws)
+	if err != nil {
+		return nil, err
 	}
 
 	deleted, _, err := DeleteWorkspace(ctx, curWsId, false)
@@ -102,7 +110,10 @@ func CreateWindow(ctx context.Context, winSize *waveobj.WinSize, workspaceId str
 		if err != nil {
 			return nil, fmt.Errorf("error getting workspace: %w", err)
 		}
-		ws = ws1
+		ws, err = ensureWorkspaceHasTab(ctx, ws1)
+		if err != nil {
+			return nil, err
+		}
 	}
 	windowId := uuid.NewString()
 	if winSize == nil {
@@ -130,6 +141,9 @@ func CreateWindow(ctx context.Context, winSize *waveobj.WinSize, workspaceId str
 		return nil, fmt.Errorf("error getting client: %w", err)
 	}
 	client.WindowIds = append(client.WindowIds, windowId)
+	if isNamedWorkspace(ws) {
+		client.LastWorkspaceId = ws.OID
+	}
 	err = wstore.DBUpdate(ctx, client)
 	if err != nil {
 		return nil, fmt.Errorf("error updating client: %w", err)
@@ -137,7 +151,72 @@ func CreateWindow(ctx context.Context, winSize *waveobj.WinSize, workspaceId str
 	return GetWindow(ctx, windowId)
 }
 
-// CloseWindow closes a window and deletes its workspace if it is empty and not named.
+// a named (saved) workspace is never deleted by its window closing
+func isNamedWorkspace(ws *waveobj.Workspace) bool {
+	return ws != nil && ws.Name != "" && ws.Icon != ""
+}
+
+// gives a workspace without tabs a fresh default tab (same as "new tab"); returns the reloaded workspace
+func ensureWorkspaceHasTab(ctx context.Context, ws *waveobj.Workspace) (*waveobj.Workspace, error) {
+	if len(ws.TabIds) > 0 {
+		return ws, nil
+	}
+	log.Printf("workspace %s has no tabs, creating one\n", ws.OID)
+	_, err := CreateTab(ctx, ws.OID, "", true, false)
+	if err != nil {
+		return nil, fmt.Errorf("error creating tab for workspace %s: %w", ws.OID, err)
+	}
+	ws, err = GetWorkspace(ctx, ws.OID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting workspace: %w", err)
+	}
+	return ws, nil
+}
+
+// records ws as the last used workspace if it is named
+func setLastWorkspace(ctx context.Context, ws *waveobj.Workspace) error {
+	if !isNamedWorkspace(ws) {
+		return nil
+	}
+	client, err := GetClientData(ctx)
+	if err != nil {
+		return err
+	}
+	if client.LastWorkspaceId == ws.OID {
+		return nil
+	}
+	client.LastWorkspaceId = ws.OID
+	err = wstore.DBUpdate(ctx, client)
+	if err != nil {
+		return fmt.Errorf("error updating client: %w", err)
+	}
+	return nil
+}
+
+// returns the last used workspace if it still exists and no main window shows it, else ""
+func getReopenableLastWorkspaceId(ctx context.Context, client *waveobj.Client) (string, error) {
+	if client.LastWorkspaceId == "" {
+		return "", nil
+	}
+	ws, err := wstore.DBGet[*waveobj.Workspace](ctx, client.LastWorkspaceId)
+	if err != nil {
+		return "", fmt.Errorf("error getting last workspace: %w", err)
+	}
+	if ws == nil {
+		return "", nil
+	}
+	windowId, err := FindMainWindowForWorkspace(ctx, ws.OID)
+	if err != nil {
+		return "", fmt.Errorf("error finding window for last workspace: %w", err)
+	}
+	if windowId != "" {
+		return "", nil
+	}
+	return ws.OID, nil
+}
+
+// CloseWindow closes a window and deletes its workspace if it is not named.
+// A named workspace is kept (even without tabs) and recorded as the last used workspace.
 // If fromElectron is true, it does not send an event to Electron.
 // A popped-out window returns its tabs to the main window and never deletes the workspace;
 // closing a main window folds its popped-out windows first.
@@ -161,12 +240,24 @@ func CloseWindow(ctx context.Context, windowId string, fromElectron bool) error 
 		if err != nil {
 			return err
 		}
-		deleted, _, err := DeleteWorkspace(ctx, window.WorkspaceId, false)
+		ws, err := wstore.DBGet[*waveobj.Workspace](ctx, window.WorkspaceId)
 		if err != nil {
-			log.Printf("error deleting workspace: %v\n", err)
+			return fmt.Errorf("error getting workspace: %w", err)
 		}
-		if deleted {
-			log.Printf("deleted workspace %s\n", window.WorkspaceId)
+		if isNamedWorkspace(ws) {
+			log.Printf("keeping named workspace %s\n", ws.OID)
+			err = setLastWorkspace(ctx, ws)
+			if err != nil {
+				return err
+			}
+		} else {
+			deleted, _, err := DeleteWorkspace(ctx, window.WorkspaceId, false)
+			if err != nil {
+				log.Printf("error deleting workspace: %v\n", err)
+			}
+			if deleted {
+				log.Printf("deleted workspace %s\n", window.WorkspaceId)
+			}
 		}
 		err = wstore.DBDelete(ctx, waveobj.OType_Window, windowId)
 		if err != nil {
@@ -232,5 +323,18 @@ func FocusWindow(ctx context.Context, windowId string) error {
 	}
 	client.WindowIds = utilfn.MoveSliceIdxToFront(client.WindowIds, winIdx)
 	log.Printf("client.WindowIds: %v\n", client.WindowIds)
+	window, err := wstore.DBGet[*waveobj.Window](ctx, windowId)
+	if err != nil {
+		return fmt.Errorf("error getting window: %w", err)
+	}
+	if window != nil && !window.IsPopOut {
+		ws, err := wstore.DBGet[*waveobj.Workspace](ctx, window.WorkspaceId)
+		if err != nil {
+			return fmt.Errorf("error getting workspace: %w", err)
+		}
+		if isNamedWorkspace(ws) {
+			client.LastWorkspaceId = ws.OID
+		}
+	}
 	return wstore.DBUpdate(ctx, client)
 }

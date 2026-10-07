@@ -218,6 +218,7 @@ declare global {
         hasoldhistory?: boolean;
         tempoid?: string;
         installid?: string;
+        lastworkspaceid?: string;
     };
 
     // workspaceservice.CloseTabRtnType

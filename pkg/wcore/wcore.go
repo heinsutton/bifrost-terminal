@@ -73,7 +73,13 @@ func EnsureInitialData() (bool, error) {
 		log.Println("client has windows")
 		return firstLaunch, nil
 	}
-	wsId := ""
+	wsId, err := getReopenableLastWorkspaceId(ctx, client)
+	if err != nil {
+		return firstLaunch, err
+	}
+	if wsId != "" {
+		log.Printf("client has no windows, reopening last workspace %s\n", wsId)
+	}
 	if firstLaunch {
 		log.Println("client has no windows and first launch, creating starter workspace")
 		starterWs, err := CreateWorkspace(ctx, "Starter realm", "rune@dagaz", "#5EF3D6", false, true)
