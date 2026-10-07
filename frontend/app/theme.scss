@@ -27,6 +27,7 @@
     --block-bg-color: rgba(23, 27, 38, 0.5);
     --block-bg-solid-color: rgb(14, 17, 23);
     --block-border-radius: 8px;
+    --tile-border-radius: calc(var(--block-border-radius) + 2px);
 
     --keybinding-color: #e2ecf5;
     --keybinding-bg-color: #1f2433;
@@ -158,4 +159,9 @@
     --button-red-outlined-color: #ff5370;
     --button-yellow-bg: #ffe066;
     --button-yellow-hover-bg: #fff08a;
+}
+
+.fullscreen {
+    --block-border-radius: 0px;
+    --tile-border-radius: 0px;
 }

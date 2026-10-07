@@ -20,6 +20,7 @@ import { setTabHandoverState } from "@/app/store/tabhandover";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { makeBuilderRouteId, makeTabRouteId } from "@/app/store/wshrouter";
 import { DefaultRouter, initWshrpc, TabRpcClient } from "@/app/store/wshrpcutil";
+import { registerFocusStripPeekHandler } from "@/app/tab/focustabstrip";
 import { BuilderApp } from "@/builder/builder-app";
 import { getLayoutModelForStaticTab } from "@/layout/index";
 import { countersClear, countersPrint } from "@/store/counters";
@@ -195,6 +196,7 @@ async function initWave(initOpts: WaveInitOpts) {
     }
     registerGlobalKeys();
     registerElectronReinjectKeyHandler();
+    registerFocusStripPeekHandler();
     registerControlShiftStateUpdateHandler();
     registerDropQueryHandler();
     registerPaneDropHandlers();

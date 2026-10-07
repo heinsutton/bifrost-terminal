@@ -129,6 +129,7 @@ type WindowActionQueueEntry =
           tabId: string;
           setInBackend: boolean;
           primaryStartupTab?: boolean;
+          stripPeek?: boolean;
           noFocus?: boolean; // don't focus the tab's webContents (that would raise this window on Windows)
       }
     | {
@@ -441,7 +442,13 @@ export class WaveBrowserWindow extends BaseWindow {
         await this._queueActionInternal({ op: "switchworkspace", workspaceId });
     }
 
-    async setActiveTab(tabId: string, setInBackend: boolean, primaryStartupTab = false, noFocus = false) {
+    async setActiveTab(
+        tabId: string,
+        setInBackend: boolean,
+        primaryStartupTab = false,
+        noFocus = false,
+        stripPeek = false
+    ) {
         console.log(
             "setActiveTab",
             tabId,
@@ -450,7 +457,14 @@ export class WaveBrowserWindow extends BaseWindow {
             setInBackend,
             primaryStartupTab ? "(primary startup)" : ""
         );
-        await this._queueActionInternal({ op: "switchtab", tabId, setInBackend, primaryStartupTab, noFocus });
+        await this._queueActionInternal({
+            op: "switchtab",
+            tabId,
+            setInBackend,
+            primaryStartupTab,
+            noFocus,
+            stripPeek,
+        });
     }
 
     private async initializeTab(tabView: WaveTabView, primaryStartupTab: boolean) {
@@ -532,7 +546,8 @@ export class WaveBrowserWindow extends BaseWindow {
         tabView: WaveTabView,
         tabInitialized: boolean,
         primaryStartupTab = false,
-        noFocus = false
+        noFocus = false,
+        stripPeek = false
     ) {
         if (this.activeTabView == tabView) {
             return;
@@ -552,6 +567,10 @@ export class WaveBrowserWindow extends BaseWindow {
             console.log("reusing an existing tab, calling wave-init", tabView.waveTabId);
             tabView.webContents.send("wave-init", tabView.savedInitOpts); // reinit
             this.finalizePositioning();
+        }
+        tabView.webContents.send("fullscreen-change", this.isFullScreen());
+        if (stripPeek) {
+            tabView.webContents.send("focus-strip-peek");
         }
         if (tabView.isWaveReady && this.activeTabView == tabView) {
             notifyTabReady(this.waveWindowId, tabView.waveTabId);
@@ -699,7 +718,14 @@ export class WaveBrowserWindow extends BaseWindow {
                 const primaryStartupTabFlag = entry.op === "switchtab" ? (entry.primaryStartupTab ?? false) : false;
                 const noFocusFlag =
                     entry.op === "switchtab" || entry.op === "closetab" ? (entry.noFocus ?? false) : false;
-                await this.setTabViewIntoWindow(tabView, tabInitialized, primaryStartupTabFlag, noFocusFlag);
+                const stripPeekFlag = entry.op === "switchtab" ? (entry.stripPeek ?? false) : false;
+                await this.setTabViewIntoWindow(
+                    tabView,
+                    tabInitialized,
+                    primaryStartupTabFlag,
+                    noFocusFlag,
+                    stripPeekFlag
+                );
             } catch (e) {
                 console.log("error caught in processActionQueue", e);
             } finally {
@@ -1385,10 +1411,10 @@ ipcMain.on("focus-main-window", (event) => {
     }
 });
 
-ipcMain.on("set-active-tab", async (event, tabId) => {
+ipcMain.on("set-active-tab", async (event, tabId, peek) => {
     const ww = getWaveWindowByWebContentsId(event.sender.id);
     console.log("set-active-tab", tabId, ww?.waveWindowId);
-    await ww?.setActiveTab(tabId, true);
+    await ww?.setActiveTab(tabId, true, false, false, peek === true);
 });
 
 ipcMain.on("create-tab", async (event, _opts) => {

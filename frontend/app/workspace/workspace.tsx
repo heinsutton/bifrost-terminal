@@ -5,6 +5,7 @@ import { AIPanel } from "@/app/aipanel/aipanel";
 import { ErrorBoundary } from "@/app/element/errorboundary";
 import { CenteredDiv } from "@/app/element/quickelems";
 import { ModalsRenderer } from "@/app/modals/modalsrenderer";
+import { FocusTabStrip } from "@/app/tab/focustabstrip";
 import { TabBar } from "@/app/tab/tabbar";
 import { TabContent } from "@/app/tab/tabcontent";
 import { VTabBar } from "@/app/tab/vtabbar";
@@ -80,14 +81,18 @@ const PopOutWorkspaceElem = memo(() => {
     const tabBarPosition = useAtomValue(getSettingsKeyAtom("app:tabbar")) ?? "top";
     const showLeftTabBar = tabBarPosition === "left";
     const vtabWidth = WorkspaceLayoutModel.getInstance().getVTabWidth();
+    const isFullScreen = useAtomValue(atoms.isFullScreen);
 
     return (
-        <div className="flex flex-col w-full flex-grow overflow-hidden">
-            {!(showLeftTabBar && isMacOS()) && <TabBar key={ws.oid} workspace={ws} noTabs={showLeftTabBar} />}
-            {showLeftTabBar && isMacOS() && <MacOSTabBarSpacer />}
+        <div className="flex flex-col w-full flex-grow overflow-hidden relative">
+            {!isFullScreen && !(showLeftTabBar && isMacOS()) && (
+                <TabBar key={ws.oid} workspace={ws} noTabs={showLeftTabBar} />
+            )}
+            {!isFullScreen && showLeftTabBar && isMacOS() && <MacOSTabBarSpacer />}
+            {isFullScreen && <FocusTabStrip />}
             <div className="flex flex-row flex-grow overflow-hidden">
                 <ErrorBoundary key={tabId}>
-                    {showLeftTabBar && (
+                    {showLeftTabBar && !isFullScreen && (
                         <div className="h-full shrink-0 overflow-hidden pr-0.5" style={{ width: vtabWidth }}>
                             <VTabBar workspace={ws} />
                         </div>
@@ -115,6 +120,7 @@ const MainWorkspaceElem = memo(() => {
     const showLeftTabBar = tabBarPosition === "left";
     const aiPanelVisible = useAtomValue(workspaceLayoutModel.panelVisibleAtom);
     const widgetsSidebarVisible = useAtomValue(workspaceLayoutModel.widgetsSidebarVisibleAtom);
+    const isFullScreen = useAtomValue(atoms.isFullScreen);
     const windowWidth = window.innerWidth;
     const leftGroupInitialPct = workspaceLayoutModel.getLeftGroupInitialPercentage(windowWidth, showLeftTabBar);
     const innerVTabInitialPct = workspaceLayoutModel.getInnerVTabInitialPercentage(windowWidth, showLeftTabBar);
@@ -170,15 +176,18 @@ const MainWorkspaceElem = memo(() => {
         return () => window.removeEventListener("focus", handleFocus);
     }, []);
 
-    const innerHandleVisible = showLeftTabBar && aiPanelVisible;
+    const innerHandleVisible = showLeftTabBar && aiPanelVisible && !isFullScreen;
     const innerHandleClass = `bg-transparent hover:bg-zinc-500/20 transition-colors ${innerHandleVisible ? "w-0.5" : "w-0 pointer-events-none"}`;
-    const outerHandleVisible = showLeftTabBar || aiPanelVisible;
+    const outerHandleVisible = (showLeftTabBar || aiPanelVisible) && !isFullScreen;
     const outerHandleClass = `bg-transparent hover:bg-zinc-500/20 transition-colors ${outerHandleVisible ? "w-0.5" : "w-0 pointer-events-none"}`;
 
     return (
-        <div className="flex flex-col w-full flex-grow overflow-hidden">
-            {!(showLeftTabBar && isMacOS()) && <TabBar key={ws.oid} workspace={ws} noTabs={showLeftTabBar} />}
-            {showLeftTabBar && isMacOS() && <MacOSTabBarSpacer />}
+        <div className="flex flex-col w-full flex-grow overflow-hidden relative">
+            {!isFullScreen && !(showLeftTabBar && isMacOS()) && (
+                <TabBar key={ws.oid} workspace={ws} noTabs={showLeftTabBar} />
+            )}
+            {!isFullScreen && showLeftTabBar && isMacOS() && <MacOSTabBarSpacer />}
+            {isFullScreen && <FocusTabStrip />}
             <div ref={panelContainerRef} className="flex flex-row flex-grow overflow-hidden">
                 <ErrorBoundary key={tabId}>
                     <PanelGroup
@@ -186,7 +195,11 @@ const MainWorkspaceElem = memo(() => {
                         onLayout={workspaceLayoutModel.handleOuterPanelLayout}
                         ref={outerPanelGroupRef}
                     >
-                        <Panel order={0} defaultSize={leftGroupInitialPct} className="overflow-hidden">
+                        <Panel
+                            order={0}
+                            defaultSize={leftGroupInitialPct}
+                            className={cn("overflow-hidden", isFullScreen && "hidden")}
+                        >
                             <PanelGroup
                                 direction="horizontal"
                                 onLayout={workspaceLayoutModel.handleInnerPanelLayout}
@@ -227,7 +240,7 @@ const MainWorkspaceElem = memo(() => {
                             ) : (
                                 <div className="flex flex-row h-full">
                                     <TabContent key={tabId} tabId={tabId} noTopPadding={showLeftTabBar && isMacOS()} />
-                                    <WidgetsSlot visible={widgetsSidebarVisible} />
+                                    <WidgetsSlot visible={widgetsSidebarVisible && !isFullScreen} />
                                 </div>
                             )}
                         </Panel>

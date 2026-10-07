@@ -355,7 +355,7 @@ function switchTabAbs(index: number) {
         return;
     }
     const newActiveTabId = tabids[newTabIdx];
-    getApi().setActiveTab(newActiveTabId);
+    getApi().setActiveTab(newActiveTabId, globalStore.get(atoms.isFullScreen));
 }
 
 function switchTab(offset: number) {
@@ -374,7 +374,7 @@ function switchTab(offset: number) {
     }
     const newTabIdx = (tabIdx + offset + tabids.length) % tabids.length;
     const newActiveTabId = tabids[newTabIdx];
-    getApi().setActiveTab(newActiveTabId);
+    getApi().setActiveTab(newActiveTabId, globalStore.get(atoms.isFullScreen));
 }
 
 function handleCmdI() {
