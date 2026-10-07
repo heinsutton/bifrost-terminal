@@ -65,6 +65,9 @@ const previewElectronApi: ElectronApi = {
     moveTabToWindow: (_tabId: string, _destWindowId: string) => {},
     focusMainWindow: () => {},
     popOutBlock: (_blockId: string) => {},
+    tabDragEnd: (_tabId: string) => {},
+    onDropQuery: (_callback: (reqId: string, x: number, y: number) => void) => {},
+    sendDropQueryResult: (_reqId: string, _result: { area: "tabbar" | "content" | "none"; tabIndex?: number }) => {},
     showMovedPane: (_destTabId: string, _closeSourceTabId: string) => {},
     onTabHandover: (_callback: (state: "start" | "rollback") => void) => {},
 };

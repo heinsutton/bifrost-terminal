@@ -292,6 +292,7 @@ export class WaveBrowserWindow extends BaseWindow {
                 return;
             }
             focusedWaveWindow = this; // eslint-disable-line @typescript-eslint/no-this-alias
+            noteWindowFocused(this.waveWindowId);
             console.log("focus win", this.waveWindowId);
             fireAndForget(() => ClientService.FocusWindow(this.waveWindowId));
             setWasInFg(true);
@@ -361,6 +362,7 @@ export class WaveBrowserWindow extends BaseWindow {
             }
             setTimeout(() => globalEvents.emit("windows-updated"), 50);
             waveWindowMap.delete(this.waveWindowId);
+            forgetWindowFocus(this.waveWindowId);
             if (focusedWaveWindow == this) {
                 focusedWaveWindow = null;
             }
@@ -874,13 +876,35 @@ export function getMainWaveWindowByWorkspaceId(workspaceId: string): WaveBrowser
     }
 }
 
+// window ids, most recently focused first (Electron exposes no z-order)
+const windowFocusOrder: string[] = [];
+
+function noteWindowFocused(windowId: string) {
+    forgetWindowFocus(windowId);
+    windowFocusOrder.unshift(windowId);
+}
+
+function forgetWindowFocus(windowId: string) {
+    const idx = windowFocusOrder.indexOf(windowId);
+    if (idx !== -1) {
+        windowFocusOrder.splice(idx, 1);
+    }
+}
+
+// all windows, most recently focused first; never-focused windows last
+export function getWaveWindowsByFocusRecency(): WaveBrowserWindow[] {
+    const focused = windowFocusOrder.map((id) => waveWindowMap.get(id)).filter((ww) => ww != null);
+    const others = getAllWaveWindows().filter((ww) => !windowFocusOrder.includes(ww.waveWindowId));
+    return [...focused, ...others];
+}
+
 export function getPopOutWaveWindows(workspaceId: string): WaveBrowserWindow[] {
     return getAllWaveWindows().filter((ww) => ww.isPopOut && ww.workspaceId === workspaceId);
 }
 
 // returns the id of the window that shows tabId (a popped-out window or the realm's main window);
 // null if the tab is not in the workspace
-async function getTabOwnerWindowId(workspaceId: string, tabId: string): Promise<string> {
+export async function getTabOwnerWindowId(workspaceId: string, tabId: string): Promise<string> {
     const workspace = await WorkspaceService.GetWorkspace(workspaceId);
     if (workspace == null || !workspace.tabids?.includes(tabId)) {
         return null;
@@ -892,7 +916,7 @@ async function getTabOwnerWindowId(workspaceId: string, tabId: string): Promise<
     return getMainWaveWindowByWorkspaceId(workspaceId)?.waveWindowId ?? null;
 }
 
-async function senderWindowOwnsTab(ww: WaveBrowserWindow, tabId: string): Promise<boolean> {
+export async function senderWindowOwnsTab(ww: WaveBrowserWindow, tabId: string): Promise<boolean> {
     if (ww == null || !tabId) {
         return false;
     }
@@ -990,6 +1014,12 @@ export function initPopOutWindowEventSubscriptions() {
         eventType: "workspace:update",
         handler: () => fireAndForget(updatePopOutWindowTitles),
     });
+}
+
+// number of tabs the window shows
+export async function getWindowTabCount(ww: WaveBrowserWindow): Promise<number> {
+    const workspace = await WorkspaceService.GetWorkspace(ww.workspaceId);
+    return getWindowTabIds(workspace, ww.waveWindowId, ww.isPopOut).length;
 }
 
 // index of tabId in the window's tab list (used to put a tab back on rollback)
@@ -1130,7 +1160,8 @@ function bringWindowToFront(ww: WaveBrowserWindow) {
 
 // moves a tab into a new popped-out window, make-before-break: the source keeps its view until the
 // new window's renderer is ready, and gets the tab back if that takes longer than TabHandoverTimeoutMs
-export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
+// pos: top-left of the new window (screen DIP); defaults to the source window offset by 40,40
+export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string, pos?: { x: number; y: number }) {
     if (srcWin.handoverOutTabIds.has(tabId)) {
         return;
     }
@@ -1141,11 +1172,10 @@ export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
     try {
         let rtn: PopOutRtn = null;
         try {
-            rtn = await WindowService.PopOutTab(
-                tabId,
-                { x: bounds.x + 40, y: bounds.y + 40 },
-                { width: bounds.width, height: bounds.height }
-            );
+            rtn = await WindowService.PopOutTab(tabId, pos ?? { x: bounds.x + 40, y: bounds.y + 40 }, {
+                width: bounds.width,
+                height: bounds.height,
+            });
         } catch (e) {
             console.log("error popping out tab", tabId, e);
         }
@@ -1191,7 +1221,13 @@ export async function popOutTab(srcWin: WaveBrowserWindow, tabId: string) {
 }
 
 // moves a tab to another window of the same realm, make-before-break (see popOutTab)
-export async function moveTabToWindow(srcWin: WaveBrowserWindow, tabId: string, destWin: WaveBrowserWindow) {
+// index: position in the destination window's tab list (-1 = end)
+export async function moveTabToWindow(
+    srcWin: WaveBrowserWindow,
+    tabId: string,
+    destWin: WaveBrowserWindow,
+    index = -1
+) {
     if (destWin == null || destWin === srcWin || destWin.workspaceId !== srcWin.workspaceId) {
         console.log("moveTabToWindow: invalid destination window", tabId, destWin?.waveWindowId);
         return;
@@ -1205,7 +1241,7 @@ export async function moveTabToWindow(srcWin: WaveBrowserWindow, tabId: string, 
     try {
         let rtn: TabWindowMoveRtn = null;
         try {
-            rtn = await WindowService.MoveTabToWindow(tabId, destWin.waveWindowId, -1);
+            rtn = await WindowService.MoveTabToWindow(tabId, destWin.waveWindowId, index);
         } catch (e) {
             console.log("error moving tab to window", tabId, destWin.waveWindowId, e);
         }

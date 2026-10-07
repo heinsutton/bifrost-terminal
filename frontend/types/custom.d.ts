@@ -147,6 +147,12 @@ declare global {
         moveTabToWindow: (tabId: string, destWindowId: string) => void; // move-tab-to-window (null destWindowId = main window)
         focusMainWindow: () => void; // focus-main-window
         popOutBlock: (blockId: string) => void; // popout-block
+        tabDragEnd: (tabId: string) => void; // tab-drag-end (a tab was dropped outside its tab bar)
+        onDropQuery: (callback: (reqId: string, x: number, y: number) => void) => void; // drop-query
+        sendDropQueryResult: (
+            reqId: string,
+            result: { area: "tabbar" | "content" | "none"; tabIndex?: number }
+        ) => void; // drop-query-result
         showMovedPane: (destTabId: string, closeSourceTabId: string) => void; // show-moved-pane (null closeSourceTabId = keep the source tab)
         onTabHandover: (callback: (state: "start" | "rollback") => void) => void; // tab-handover
     };

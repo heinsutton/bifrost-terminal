@@ -16,10 +16,7 @@ function renderVTab(tab: VTabItem): string {
             isDragging={false}
             isReordering={false}
             onSelect={() => null}
-            onDragStart={() => null}
-            onDragOver={() => null}
-            onDrop={() => null}
-            onDragEnd={() => null}
+            onPointerDown={() => null}
         />
     );
 }

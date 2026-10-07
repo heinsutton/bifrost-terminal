@@ -60,6 +60,10 @@ contextBridge.exposeInMainWorld("api", {
         ipcRenderer.send("move-tab-to-window", tabId, destWindowId),
     focusMainWindow: () => ipcRenderer.send("focus-main-window"),
     popOutBlock: (blockId: string) => ipcRenderer.send("popout-block", blockId),
+    tabDragEnd: (tabId: string) => ipcRenderer.send("tab-drag-end", tabId),
+    onDropQuery: (callback) =>
+        ipcRenderer.on("drop-query", (_event, reqId: string, x: number, y: number) => callback(reqId, x, y)),
+    sendDropQueryResult: (reqId: string, result) => ipcRenderer.send("drop-query-result", reqId, result),
     showMovedPane: (destTabId: string, closeSourceTabId: string) =>
         ipcRenderer.send("show-moved-pane", destTabId, closeSourceTabId),
     onTabHandover: (callback) => ipcRenderer.on("tab-handover", (_event, state) => callback(state)),

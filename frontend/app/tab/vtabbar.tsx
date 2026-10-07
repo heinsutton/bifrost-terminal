@@ -9,6 +9,7 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { validateCssColor } from "@/util/color-validator";
+import { isTornOff } from "@/util/tabdragutil";
 import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
@@ -19,6 +20,9 @@ import { VTab, VTabItem } from "./vtab";
 import { VTabBarEnv } from "./vtabbarenv";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 export type { VTabItem } from "./vtab";
+
+// pointer movement before a press on a tab becomes a drag (a smaller move is a click)
+const VTabDragStartPx = 4;
 
 const VTabBarAIButton = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
@@ -108,10 +112,7 @@ interface VTabWrapperProps {
     onSelect: () => void;
     onClose: () => void;
     onRename: (newName: string) => void;
-    onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDragEnd: () => void;
+    onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
     onHoverChanged: (isHovered: boolean) => void;
 }
 
@@ -125,10 +126,7 @@ function VTabWrapper({
     onSelect,
     onClose,
     onRename,
-    onDragStart,
-    onDragOver,
-    onDrop,
-    onDragEnd,
+    onPointerDown,
     onHoverChanged,
 }: VTabWrapperProps) {
     const env = useWaveEnv<VTabBarEnv>();
@@ -187,10 +185,7 @@ function VTabWrapper({
             onClose={onClose}
             onRename={onRename}
             onContextMenu={handleContextMenu}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onDragEnd={onDragEnd}
+            onPointerDown={onPointerDown}
             onHoverChanged={onHoverChanged}
             renameRef={renameRef}
         />
@@ -217,10 +212,16 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
     const scrollAnimFrameRef = useRef<number | null>(null);
     const scrollDirectionRef = useRef<number>(0);
     const scrollSpeedRef = useRef<number>(0);
+    const pointerDragCleanupRef = useRef<(() => void) | null>(null);
+    const suppressClickRef = useRef(false);
 
     useEffect(() => {
         setOrderedTabIds(tabIds);
     }, [tabIds]);
+
+    useEffect(() => {
+        return () => pointerDragCleanupRef.current?.();
+    }, []);
 
     useEffect(() => {
         if (reinitVersion > 0) {
@@ -328,6 +329,132 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
         fireAndForget(() => env.rpc.UpdateWorkspaceTabIdsCommand(TabRpcClient, workspace.oid, nextTabIds));
     };
 
+    const reorderRef = useRef(reorder);
+    reorderRef.current = reorder;
+
+    // drop slot under clientY: before the first tab whose middle is below the pointer
+    const computeDropTarget = (clientY: number): { index: number; lineTop: number } => {
+        const items = Array.from(scrollContainerRef.current?.querySelectorAll<HTMLElement>("[data-tabid]") ?? []);
+        for (let i = 0; i < items.length; i++) {
+            const rect = items[i].getBoundingClientRect();
+            if (clientY < rect.top + rect.height / 2) {
+                return { index: i, lineTop: items[i].offsetTop };
+            }
+        }
+        const last = items[items.length - 1];
+        return { index: items.length, lineTop: last != null ? last.offsetTop + last.offsetHeight : 0 };
+    };
+
+    // Pointer-based drag (not HTML5 drag-and-drop): pointer capture keeps the events coming outside
+    // the window and Esc reaches the page, so Esc cancels instead of looking like a drop on the desktop.
+    // Dropped in the bar: reorder. Dropped away from it: emain docks the tab in another window or tears it off.
+    const handleTabPointerDown = (event: React.PointerEvent<HTMLDivElement>, tabId: string) => {
+        if (event.button !== 0 || pointerDragCleanupRef.current != null) {
+            return;
+        }
+        const target = event.currentTarget;
+        const pointerId = event.pointerId;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const drag = { started: false, tornOff: false, dropIndex: null as number };
+        const finish = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+            window.removeEventListener("pointercancel", onCancel);
+            window.removeEventListener("keydown", onKeyDown, true);
+            window.removeEventListener("blur", cancel);
+            target.removeEventListener("lostpointercapture", cancel);
+            if (target.hasPointerCapture?.(pointerId)) {
+                target.releasePointerCapture(pointerId);
+            }
+            pointerDragCleanupRef.current = null;
+        };
+        const suppressNextClick = () => {
+            suppressClickRef.current = true;
+            setTimeout(() => {
+                suppressClickRef.current = false;
+            }, 0);
+        };
+        const cancel = () => {
+            finish();
+            if (drag.started) {
+                suppressNextClick();
+                clearDragState();
+            }
+        };
+        const onMove = (e: PointerEvent) => {
+            if (e.pointerId !== pointerId) {
+                return;
+            }
+            if (!drag.started) {
+                if (Math.hypot(e.clientX - startX, e.clientY - startY) < VTabDragStartPx) {
+                    return;
+                }
+                drag.started = true;
+                target.setPointerCapture?.(pointerId);
+                // capture lost without pointerup/pointercancel (focus loss, the tab re-rendered): cancel,
+                // so a later pointerup elsewhere is not taken as a drop
+                target.addEventListener("lostpointercapture", cancel);
+                didResetHoverForDragRef.current = false;
+                dragSourceRef.current = tabId;
+                setDragTabId(tabId);
+            }
+            const barRect = scrollContainerRef.current?.getBoundingClientRect();
+            const barArea = { x: barRect?.left ?? 0, y: 0, width: barRect?.width ?? 0, height: window.innerHeight };
+            const viewport = { width: window.innerWidth, height: window.innerHeight };
+            drag.tornOff = isTornOff({ x: e.clientX, y: e.clientY }, barArea, viewport);
+            if (drag.tornOff) {
+                drag.dropIndex = null;
+                setDropIndex(null);
+                setDropLineTop(null);
+                stopScrollLoop();
+                return;
+            }
+            const dropTarget = computeDropTarget(e.clientY);
+            drag.dropIndex = dropTarget.index;
+            setDropIndex(dropTarget.index);
+            setDropLineTop(dropTarget.lineTop);
+            updateScrollFromDragY(e.clientY);
+        };
+        const onUp = (e: PointerEvent) => {
+            if (e.pointerId !== pointerId) {
+                return;
+            }
+            finish();
+            if (!drag.started) {
+                return;
+            }
+            suppressNextClick();
+            if (drag.tornOff) {
+                clearDragState();
+                env.electron.tabDragEnd(tabId);
+                return;
+            }
+            if (drag.dropIndex != null) {
+                reorderRef.current(drag.dropIndex);
+            }
+            clearDragState();
+        };
+        const onCancel = (e: PointerEvent) => {
+            if (e.pointerId === pointerId) {
+                cancel();
+            }
+        };
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && drag.started) {
+                e.preventDefault();
+                e.stopPropagation();
+                cancel();
+            }
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onCancel);
+        window.addEventListener("keydown", onKeyDown, true);
+        window.addEventListener("blur", cancel);
+        pointerDragCleanupRef.current = finish;
+    };
+
     const handleTabBarContextMenu = useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
             e.preventDefault();
@@ -339,30 +466,13 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
 
     return (
         <div
+            data-vtabbar
             className={cn("flex h-full flex-col overflow-hidden", className)}
             style={{ backdropFilter: "blur(20px)", background: "rgba(0, 0, 0, 0.35)" }}
             onContextMenu={handleTabBarContextMenu}
         >
             {env.isMacOS() && <MacOSHeader />}
-            <div
-                ref={scrollContainerRef}
-                className="relative flex min-h-0 flex-col overflow-y-auto"
-                onDragOver={(event) => {
-                    event.preventDefault();
-                    updateScrollFromDragY(event.clientY);
-                    if (event.target === event.currentTarget) {
-                        setDropIndex(orderedTabIds.length);
-                        setDropLineTop(event.currentTarget.scrollHeight);
-                    }
-                }}
-                onDrop={(event) => {
-                    event.preventDefault();
-                    if (dropIndex != null) {
-                        reorder(dropIndex);
-                    }
-                    clearDragState();
-                }}
-            >
+            <div ref={scrollContainerRef} className="relative flex min-h-0 flex-col overflow-y-auto">
                 {orderedTabIds.map((tabId, index) => {
                     const isActive = tabId === activeTabId;
                     const isHovered = tabId === hoveredTabId;
@@ -386,41 +496,16 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             isReordering={dragTabId != null}
                             hoverResetVersion={hoverResetVersion}
                             index={index}
-                            onSelect={() => env.electron.setActiveTab(tabId)}
+                            onSelect={() => {
+                                if (!suppressClickRef.current) {
+                                    env.electron.setActiveTab(tabId);
+                                }
+                            }}
                             onClose={() => fireAndForget(() => env.electron.closeTab(workspace.oid, tabId, false))}
                             onRename={(newName) =>
                                 fireAndForget(() => env.rpc.UpdateTabNameCommand(TabRpcClient, tabId, newName))
                             }
-                            onDragStart={(event) => {
-                                didResetHoverForDragRef.current = false;
-                                dragSourceRef.current = tabId;
-                                event.dataTransfer.effectAllowed = "move";
-                                event.dataTransfer.setData("text/plain", tabId);
-                                setDragTabId(tabId);
-                                setDropIndex(index);
-                                setDropLineTop(event.currentTarget.offsetTop);
-                            }}
-                            onDragOver={(event) => {
-                                event.preventDefault();
-                                const rect = event.currentTarget.getBoundingClientRect();
-                                const relativeY = event.clientY - rect.top;
-                                const midpoint = event.currentTarget.offsetHeight / 2;
-                                const insertBefore = relativeY < midpoint;
-                                setDropIndex(insertBefore ? index : index + 1);
-                                setDropLineTop(
-                                    insertBefore
-                                        ? event.currentTarget.offsetTop
-                                        : event.currentTarget.offsetTop + event.currentTarget.offsetHeight
-                                );
-                            }}
-                            onDrop={(event) => {
-                                event.preventDefault();
-                                if (dropIndex != null) {
-                                    reorder(dropIndex);
-                                }
-                                clearDragState();
-                            }}
-                            onDragEnd={clearDragState}
+                            onPointerDown={(event) => handleTabPointerDown(event, tabId)}
                             onHoverChanged={(isHovered) => setHoveredTabId(isHovered ? tabId : null)}
                         />
                     );

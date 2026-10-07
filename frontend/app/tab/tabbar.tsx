@@ -7,6 +7,7 @@ import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { deleteLayoutModelForTab } from "@/layout/index";
 import { isMacOSTahoeOrLater } from "@/util/platformutil";
+import { isTornOff } from "@/util/tabdragutil";
 import { fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { OverlayScrollbars } from "overlayscrollbars";
@@ -462,8 +463,54 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         []
     );
 
-    const handleMouseUp = (_event: MouseEvent) => {
-        const { tabIndex, dragged } = draggingTabDataRef.current;
+    const removeDragListeners = () => {
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("keydown", handleDragKeyDown, true);
+        window.removeEventListener("blur", restoreDraggedTab);
+        draggingRemovedRef.current = false;
+    };
+
+    // puts the dragged tab back where the drag started (Esc, or the tab was dropped outside the bar)
+    const restoreDraggedTab = () => {
+        const { tabId, tabStartIndex } = draggingTabDataRef.current;
+        const curIndex = tabIds.indexOf(tabId);
+        if (curIndex !== -1 && curIndex !== tabStartIndex) {
+            tabIds.splice(curIndex, 1);
+            tabIds.splice(tabStartIndex, 0, tabId);
+        }
+        draggingTabDataRef.current.tabIndex = tabStartIndex;
+        draggingTabDataRef.current.dragged = true;
+        setSizeAndPosition(true);
+        tabRefs.current.forEach((ref) => {
+            if (ref.current) {
+                ref.current.style.zIndex = "0";
+            }
+        });
+        setDraggingTab(null);
+        removeDragListeners();
+    };
+
+    const handleDragKeyDown = (event: KeyboardEvent) => {
+        if (event.key !== "Escape") {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        restoreDraggedTab();
+    };
+
+    const handleMouseUp = (event: MouseEvent) => {
+        const { tabId, tabIndex, dragged } = draggingTabDataRef.current;
+        const barRect = tabbarWrapperRef.current?.getBoundingClientRect();
+        const point = { x: event.clientX, y: event.clientY };
+        const barArea = { x: 0, y: barRect?.top ?? 0, width: window.innerWidth, height: barRect?.height ?? 0 };
+        if (barRect != null && isTornOff(point, barArea, { width: window.innerWidth, height: window.innerHeight })) {
+            // dropped away from the tab bar: emain docks it in another window or tears it off
+            restoreDraggedTab();
+            env.electron.tabDragEnd(tabId);
+            return;
+        }
 
         // Update the final position of the dragged tab
         const draggingTab = tabIds[tabIndex];
@@ -487,9 +534,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             setDraggingTab(null);
         }
 
-        document.removeEventListener("mouseup", handleMouseUp);
-        document.removeEventListener("mousemove", handleMouseMove);
-        draggingRemovedRef.current = false;
+        removeDragListeners();
     };
 
     const handleDragStart = useCallback(
@@ -514,6 +559,9 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
                 document.addEventListener("mousemove", handleMouseMove);
                 document.addEventListener("mouseup", handleMouseUp);
+                document.addEventListener("keydown", handleDragKeyDown, true);
+                // focus lost mid-drag (alt-tab): the mouseup may never arrive, so cancel the drag
+                window.addEventListener("blur", restoreDraggedTab);
             }
         },
         [tabIds, dragStartPositions]

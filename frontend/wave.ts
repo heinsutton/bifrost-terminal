@@ -4,6 +4,7 @@
 import { App } from "@/app/app";
 import { loadMonaco } from "@/app/monaco/monaco-env";
 import { loadBadges } from "@/app/store/badge";
+import { registerDropQueryHandler } from "@/app/store/dropquery";
 import { GlobalModel } from "@/app/store/global-model";
 import {
     globalRefocus,
@@ -194,6 +195,7 @@ async function initWave(initOpts: WaveInitOpts) {
     registerGlobalKeys();
     registerElectronReinjectKeyHandler();
     registerControlShiftStateUpdateHandler();
+    registerDropQueryHandler();
     getApi().onTabHandover((state) => {
         setTabHandoverState(state);
         if (state === "rollback") {

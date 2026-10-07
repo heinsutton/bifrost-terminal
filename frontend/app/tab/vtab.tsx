@@ -27,10 +27,8 @@ interface VTabProps {
     onClose?: () => void;
     onRename?: (newName: string) => void;
     onContextMenu?: (event: React.MouseEvent<HTMLDivElement>) => void;
-    onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
-    onDragEnd: () => void;
+    // pointer-based drag (reorder, or drop outside the bar to dock/tear off); not called while renaming
+    onPointerDown?: (event: React.PointerEvent<HTMLDivElement>) => void;
     onHoverChanged?: (isHovered: boolean) => void;
     renameRef?: React.RefObject<(() => void) | null>;
 }
@@ -45,10 +43,7 @@ export function VTab({
     onClose,
     onRename,
     onContextMenu,
-    onDragStart,
-    onDragOver,
-    onDrop,
-    onDragEnd,
+    onPointerDown,
     onHoverChanged,
     renameRef,
 }: VTabProps) {
@@ -147,7 +142,6 @@ export function VTab({
 
     return (
         <div
-            draggable
             data-tabid={tab.id}
             onClick={onSelect}
             onDoubleClick={(event) => {
@@ -155,10 +149,11 @@ export function VTab({
                 startRename();
             }}
             onContextMenu={onContextMenu}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
-            onDragEnd={onDragEnd}
+            onPointerDown={(event) => {
+                if (!isEditable) {
+                    onPointerDown?.(event);
+                }
+            }}
             onMouseEnter={() => onHoverChanged?.(true)}
             onMouseLeave={() => onHoverChanged?.(false)}
             className={cn(
