@@ -1,6 +1,6 @@
-# Building Wave Terminal
+# Building Bifrost Terminal
 
-These instructions are for setting up dependencies and building Wave Terminal from source on macOS, Linux, and Windows.
+These instructions are for setting up dependencies and building Bifrost Terminal from source on macOS, Linux, and Windows.
 
 ## Prerequisites
 
@@ -76,13 +76,13 @@ We now use `npm`, so you can just run an `npm install` to install node dependenc
 ## Clone the Repo
 
 ```sh
-git clone git@github.com:wavetermdev/waveterm.git
+git clone git@github.com:heinsutton/bifrost-terminal.git
 ```
 
 or
 
 ```sh
-git clone https://github.com/wavetermdev/waveterm.git
+git clone https://github.com/heinsutton/bifrost-terminal.git
 ```
 
 ## Install code dependencies

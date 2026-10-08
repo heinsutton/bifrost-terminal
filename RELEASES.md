@@ -1,3 +1,5 @@
+> This is upstream Wave Terminal's release process, kept for reference.
+
 # Building for release
 
 ## Step-by-step guide

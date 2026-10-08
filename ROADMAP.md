@@ -1,3 +1,5 @@
+> This is upstream Wave Terminal's roadmap, kept for reference.
+
 # Wave Terminal Roadmap
 
 This roadmap outlines major upcoming features and improvements for Wave Terminal. As with any roadmap, priorities and timelines may shift as development progresses.

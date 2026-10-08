@@ -59,8 +59,9 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-coc@commandline.dev.
+reported to the maintainer, heinsutton, by opening an issue at
+https://github.com/heinsutton/bifrost-terminal/issues (or privately via the
+Security tab of that repository if the report is sensitive).
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

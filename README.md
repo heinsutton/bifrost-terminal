@@ -1,34 +1,24 @@
 <p align="center">
-  <a href="https://www.waveterm.dev">
 	<picture>
-		<source media="(prefers-color-scheme: dark)" srcset="./assets/wave-dark.png">
-		<source media="(prefers-color-scheme: light)" srcset="./assets/wave-light.png">
-		<img alt="Wave Terminal Logo" src="./assets/wave-light.png" width="240">
+		<source media="(prefers-color-scheme: dark)" srcset="./assets/bifrost/bifrost-logo-horizontal-dark.png">
+		<source media="(prefers-color-scheme: light)" srcset="./assets/bifrost/bifrost-logo-horizontal-light.png">
+		<img alt="Bifrost Terminal Logo" src="./assets/bifrost/bifrost-logo-horizontal-light.png" width="360">
 	</picture>
-  </a>
   <br/>
 </p>
 
-# Wave Terminal
+# Bifrost Terminal
 
-<div align="center">
+Bifrost Terminal is a personal, independently maintained fork of [Wave Terminal](https://github.com/wavetermdev/waveterm) by Command Line Inc. It is not affiliated with or endorsed by Command Line Inc. Wave Terminal is a trademark of its owners.
 
-[English](README.md) | [한국어](README.ko.md) | [繁體中文](README.zh-TW.md)
+Bifrost Terminal (like Wave Terminal) is an open-source, AI-integrated terminal for macOS, Linux, and Windows. It works with any AI model. Bring your own API keys for OpenAI, Claude, or Gemini, or run local models via Ollama and LM Studio. No accounts required.
 
-</div>
-
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fwavetermdev%2Fwaveterm.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fwavetermdev%2Fwaveterm?ref=badge_shield)
-
-Wave is an open-source, AI-integrated terminal for macOS, Linux, and Windows. It works with any AI model. Bring your own API keys for OpenAI, Claude, or Gemini, or run local models via Ollama and LM Studio. No accounts required.
-
-Wave also supports durable SSH sessions that survive network interruptions and restarts, with automatic reconnection. Edit remote files with a built-in graphical editor and preview files inline without leaving the terminal.
-
-![WaveTerm Screenshot](./assets/wave-screenshot.webp)
+It also supports durable SSH sessions that survive network interruptions and restarts, with automatic reconnection. Edit remote files with a built-in graphical editor and preview files inline without leaving the terminal.
 
 ## Key Features
 
 - Wave AI - Context-aware terminal assistant that reads your terminal output, analyzes widgets, and performs file operations
-- Durable SSH Sessions - Remote terminal sessions survive connection interruptions, network changes, and Wave restarts with automatic reconnection
+- Durable SSH Sessions - Remote terminal sessions survive connection interruptions, network changes, and app restarts with automatic reconnection
 - Flexible drag & drop interface to organize terminal blocks, editors, web browsers, and AI assistants
 - Built-in editor for editing remote files with syntax highlighting and modern editor features
 - Rich file preview system for remote files (markdown, images, video, PDFs, CSVs, directories)
@@ -50,22 +40,17 @@ Wave AI is your context-aware terminal assistant with access to your workspace:
 - **CLI Integration**: Use `wsh ai` to pipe output or attach files directly from the command line
 - **BYOK Support**: Bring your own API keys for OpenAI, Claude, Gemini, Azure, and other providers
 - **Local Models**: Run local models with Ollama, LM Studio, and other OpenAI-compatible providers
-- **Free Beta**: Included AI credits while we refine the experience
 - **Coming Soon**: Command execution (with approval)
 
-Learn more in our [Wave AI documentation](https://docs.waveterm.dev/waveai) and [Wave AI Modes documentation](https://docs.waveterm.dev/waveai-modes).
+Upstream documentation for these features is at [docs.waveterm.dev](https://docs.waveterm.dev). It describes Wave Terminal and may differ from Bifrost Terminal.
 
 ## Installation
 
-Wave Terminal works on macOS, Linux, and Windows.
-
-Platform-specific installation instructions can be found [here](https://docs.waveterm.dev/gettingstarted).
-
-You can also install Wave Terminal directly from: [www.waveterm.dev/download](https://www.waveterm.dev/download).
+Bifrost Terminal is built from source. See [Building Bifrost Terminal](BUILD.md).
 
 ### Minimum requirements
 
-Wave Terminal runs on the following platforms:
+Bifrost Terminal runs on the following platforms:
 
 - macOS 11 or later (arm64, x64)
 - Windows 10 1809 or later (x64)
@@ -77,41 +62,34 @@ The WSH helper runs on the following platforms:
 - Windows 10 or later (x64)
 - Linux Kernel 2.6.32 or later (x64), Linux Kernel 3.1 or later (arm64)
 
+## What Bifrost adds
+
+- Bifrost theme and branding
+- Realms
+- Focus mode (F11) with a full-screen focus layout and tab strip
+- Rune tab badges and OS notifications, with click to jump to the source
+- Pop-out windows, with tabs and panes moved between windows
+
 ## Roadmap
 
-Wave is constantly improving! Our roadmap will be continuously updated with our goals for each release. You can find it [here](./ROADMAP.md).
+[ROADMAP.md](./ROADMAP.md) is kept from upstream Wave Terminal for reference.
 
-Want to provide input to our future releases? Connect with us on [Discord](https://discord.gg/XfvZ334gwU) or open a [Feature Request](https://github.com/wavetermdev/waveterm/issues/new/choose)!
+## Issues and Feature Requests
 
-## Links
-
-- Homepage &mdash; https://www.waveterm.dev
-- Download Page &mdash; https://www.waveterm.dev/download
-- Documentation &mdash; https://docs.waveterm.dev
-- X &mdash; https://x.com/wavetermdev
-- Discord Community &mdash; https://discord.gg/XfvZ334gwU
+Use [GitHub Issues](https://github.com/heinsutton/bifrost-terminal/issues) on this fork. Problems that also affect upstream Wave Terminal can be reported at [wavetermdev/waveterm](https://github.com/wavetermdev/waveterm/issues).
 
 ## Building from Source
 
-See [Building Wave Terminal](BUILD.md).
+See [Building Bifrost Terminal](BUILD.md).
 
 ## Contributing
 
-Wave uses GitHub Issues for issue tracking.
+Issues and pull requests on this fork are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Find more information in our [Contributions Guide](CONTRIBUTING.md), which includes:
+## Acknowledgements
 
-- [Ways to contribute](CONTRIBUTING.md#contributing-to-wave-terminal)
-- [Contribution guidelines](CONTRIBUTING.md#before-you-start)
-
-### Sponsoring Wave ❤️
-
-If Wave Terminal is useful to you or your company, consider sponsoring development.
-
-Sponsorship helps support the time spent building and maintaining the project.
-
-- https://github.com/sponsors/wavetermdev
+Bifrost Terminal is based on [Wave Terminal](https://github.com/wavetermdev/waveterm), created by Command Line Inc. and its contributors. Thank you to them for building it and releasing it as open source. Third-party dependency licences are listed in [ACKNOWLEDGEMENTS.md](./ACKNOWLEDGEMENTS.md).
 
 ## License
 
-Wave Terminal is licensed under the Apache-2.0 License. For more information on our dependencies, see [here](./ACKNOWLEDGEMENTS.md).
+Bifrost Terminal is licensed under the Apache-2.0 License (see [LICENSE](./LICENSE) and [NOTICE](./NOTICE)). It is based on Wave Terminal, © Command Line Inc., also Apache-2.0. Modified files are tracked in this repository's git history.
