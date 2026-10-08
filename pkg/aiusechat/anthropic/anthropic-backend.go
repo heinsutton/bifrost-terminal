@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -343,20 +342,6 @@ func (p *partialJSON) FinalObject() (json.RawMessage, error) {
 	}
 }
 
-// sanitizeHostnameInError removes the Wave cloud hostname from error messages
-func sanitizeHostnameInError(err error) error {
-	if err == nil {
-		return nil
-	}
-	errStr := err.Error()
-	parsedURL, parseErr := url.Parse(uctypes.DefaultAIEndpoint)
-	if parseErr == nil && parsedURL.Host != "" && strings.Contains(errStr, parsedURL.Host) {
-		errStr = strings.ReplaceAll(errStr, uctypes.DefaultAIEndpoint, "AI service")
-		errStr = strings.ReplaceAll(errStr, parsedURL.Host, "host")
-	}
-	return fmt.Errorf("%s", errStr)
-}
-
 // makeThinkingOpts creates thinking options based on level and max tokens
 func makeThinkingOpts(thinkingLevel string, maxTokens int) *anthropicThinkingOpts {
 	if thinkingLevel != uctypes.ThinkingLevelMedium && thinkingLevel != uctypes.ThinkingLevelHigh {
@@ -400,13 +385,13 @@ func parseAnthropicHTTPError(resp *http.Response) error {
 	// Try to parse as Anthropic error format first
 	var eresp anthropicHTTPErrorResponse
 	if err := json.Unmarshal(slurp, &eresp); err == nil && eresp.Error.Message != "" {
-		return sanitizeHostnameInError(fmt.Errorf("anthropic %s: %s", resp.Status, eresp.Error.Message))
+		return fmt.Errorf("anthropic %s: %s", resp.Status, eresp.Error.Message)
 	}
 
 	// Try to parse as proxy error format
 	var proxyErr uctypes.ProxyErrorResponse
 	if err := json.Unmarshal(slurp, &proxyErr); err == nil && !proxyErr.Success && proxyErr.Error != "" {
-		return sanitizeHostnameInError(fmt.Errorf("anthropic %s: %s", resp.Status, proxyErr.Error))
+		return fmt.Errorf("anthropic %s: %s", resp.Status, proxyErr.Error)
 	}
 
 	// Fall back to truncated raw response
@@ -414,7 +399,7 @@ func parseAnthropicHTTPError(resp *http.Response) error {
 	if msg == "" {
 		msg = "unknown error"
 	}
-	return sanitizeHostnameInError(fmt.Errorf("anthropic %s: %s", resp.Status, msg))
+	return fmt.Errorf("anthropic %s: %s", resp.Status, msg)
 }
 
 func RunAnthropicChatStep(
@@ -488,7 +473,7 @@ func RunAnthropicChatStep(
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, nil, nil, sanitizeHostnameInError(err)
+		return nil, nil, nil, err
 	}
 	defer resp.Body.Close()
 
@@ -499,13 +484,6 @@ func RunAnthropicChatStep(
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(ct, "text/event-stream") {
 		// Handle 429 rate limit with special logic
 		if resp.StatusCode == http.StatusTooManyRequests && rateLimitInfo != nil {
-			if rateLimitInfo.PReq == 0 && rateLimitInfo.Req > 0 {
-				// Premium requests exhausted, but regular requests available
-				stopReason := &uctypes.WaveStopReason{
-					Kind: uctypes.StopKindPremiumRateLimit,
-				}
-				return stopReason, nil, rateLimitInfo, nil
-			}
 			if rateLimitInfo.Req == 0 {
 				// All requests exhausted
 				stopReason := &uctypes.WaveStopReason{

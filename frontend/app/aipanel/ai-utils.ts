@@ -533,46 +533,23 @@ export const createImagePreview = async (file: File): Promise<string | null> => 
 };
 
 
-/**
- * Filter and organize AI mode configs into Wave and custom provider groups
- * Returns organized configs that should be displayed based on settings and premium status
- */
-export interface FilteredAIModeConfigs {
-    waveProviderConfigs: Array<{ mode: string } & AIModeConfigType>;
-    otherProviderConfigs: Array<{ mode: string } & AIModeConfigType>;
-    shouldShowCloudModes: boolean;
-}
-
-export const getFilteredAIModeConfigs = (
-    aiModeConfigs: Record<string, AIModeConfigType>,
-    showCloudModes: boolean,
-    inBuilder: boolean,
-    hasPremium: boolean,
-    currentMode?: string
-): FilteredAIModeConfigs => {
-    const hideQuick = inBuilder && hasPremium;
-
-    const allConfigs = Object.entries(aiModeConfigs)
+export const getSortedAIModeConfigs = (
+    aiModeConfigs: Record<string, AIModeConfigType>
+): Array<{ mode: string } & AIModeConfigType> => {
+    return Object.entries(aiModeConfigs ?? {})
         .map(([mode, config]) => ({ mode, ...config }))
-        .filter((config) => !(hideQuick && config.mode === "waveai@quick"));
-
-    const otherProviderConfigs = allConfigs
-        .filter((config) => config["ai:provider"] !== "wave")
         .sort(sortByDisplayOrder);
+};
 
-    const hasCustomModels = otherProviderConfigs.length > 0;
-    const isCurrentModeCloud = currentMode?.startsWith("waveai@") ?? false;
-    const shouldShowCloudModes = showCloudModes || !hasCustomModels || isCurrentModeCloud;
-
-    const waveProviderConfigs = shouldShowCloudModes
-        ? allConfigs.filter((config) => config["ai:provider"] === "wave").sort(sortByDisplayOrder)
-        : [];
-
-    return {
-        waveProviderConfigs,
-        otherProviderConfigs,
-        shouldShowCloudModes,
-    };
+export const resolveDefaultAIMode = (
+    aiModeConfigs: Record<string, AIModeConfigType>,
+    requestedMode: string | null | undefined
+): string => {
+    if (requestedMode != null && aiModeConfigs != null && requestedMode in aiModeConfigs) {
+        return requestedMode;
+    }
+    const sorted = getSortedAIModeConfigs(aiModeConfigs);
+    return sorted.length > 0 ? sorted[0].mode : "unknown";
 };
 
 /**

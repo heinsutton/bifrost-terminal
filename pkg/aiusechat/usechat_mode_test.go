@@ -37,3 +37,14 @@ func TestApplyProviderDefaultsKeepsProxyURL(t *testing.T) {
 		t.Fatalf("expected proxy URL to be preserved, got %q", config.ProxyURL)
 	}
 }
+
+func TestApplyProviderDefaultsLegacyWaveProviderHasNoEndpoint(t *testing.T) {
+	config := wconfig.AIModeConfigType{
+		Provider: "wave",
+		Model:    "gpt-5-mini",
+	}
+	applyProviderDefaults(&config)
+	if config.Endpoint != "" {
+		t.Fatalf("expected no endpoint for removed wave provider, got %q", config.Endpoint)
+	}
+}

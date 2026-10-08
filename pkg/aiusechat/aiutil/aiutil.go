@@ -191,17 +191,17 @@ func MakeHTTPClient(proxyURL string) (*http.Client, error) {
 	client := &http.Client{
 		Timeout: 0, // rely on ctx; streaming can be long
 	}
-	if proxyURL == "" {
-		return client, nil
+	base := http.DefaultTransport
+	if proxyURL != "" {
+		pURL, err := url.Parse(proxyURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid proxy URL: %w", err)
+		}
+		base = &http.Transport{
+			Proxy: http.ProxyURL(pURL),
+		}
 	}
-
-	pURL, err := url.Parse(proxyURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid proxy URL: %w", err)
-	}
-	client.Transport = &http.Transport{
-		Proxy: http.ProxyURL(pURL),
-	}
+	client.Transport = &hostGuardTransport{base: base}
 	return client, nil
 }
 

@@ -18,7 +18,6 @@
         "ai:provider": {
           "type": "string",
           "enum": [
-            "wave",
             "google",
             "groq",
             "openrouter",
@@ -94,12 +93,6 @@
             "type": "string"
           },
           "type": "array"
-        },
-        "waveai:cloud": {
-          "type": "boolean"
-        },
-        "waveai:premium": {
-          "type": "boolean"
         }
       },
       "additionalProperties": false,

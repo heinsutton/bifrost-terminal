@@ -28,6 +28,7 @@ import {
     isAcceptableFile,
     normalizeMimeType,
     resizeImage,
+    resolveDefaultAIMode,
     validateFileSizeFromInfo,
 } from "./ai-utils";
 import type { AIPanelInputRef } from "./aipanelinput";
@@ -40,27 +41,6 @@ export interface DroppedFile {
     size: number;
     previewUrl?: string;
 }
-
-const BuilderAIModeConfigs: Record<string, AIModeConfigType> = {
-    "waveaibuilder@default": {
-        "display:name": "Builder Default",
-        "display:order": -2,
-        "display:icon": "sparkles",
-        "display:description": "Good mix of speed and accuracy\n(gpt-5.4 with minimal thinking)",
-        "ai:provider": "wave",
-        "ai:switchcompat": ["wavecloud"],
-        "waveai:premium": true,
-    },
-    "waveaibuilder@deep": {
-        "display:name": "Builder Deep",
-        "display:order": -1,
-        "display:icon": "lightbulb",
-        "display:description": "Slower but most capable\n(gpt-5.4 with full reasoning)",
-        "ai:provider": "wave",
-        "ai:switchcompat": ["wavecloud"],
-        "waveai:premium": true,
-    },
-};
 
 export class WaveAIModel {
     private static instance: WaveAIModel | null = null;
@@ -81,7 +61,6 @@ export class WaveAIModel {
     chatId!: jotai.PrimitiveAtom<string>;
     currentAIMode!: jotai.PrimitiveAtom<string>;
     aiModeConfigs!: jotai.Atom<Record<string, AIModeConfigType>>;
-    hasPremiumAtom!: jotai.Atom<boolean>;
     defaultModeAtom!: jotai.Atom<string>;
     errorMessage: jotai.PrimitiveAtom<string> = jotai.atom(null) as jotai.PrimitiveAtom<string>;
     containerWidth: jotai.PrimitiveAtom<number> = jotai.atom(0);
@@ -101,16 +80,7 @@ export class WaveAIModel {
         this.orefContext = orefContext;
         this.inBuilder = inBuilder;
         this.chatId = jotai.atom(null) as jotai.PrimitiveAtom<string>;
-        if (inBuilder) {
-            this.aiModeConfigs = jotai.atom(BuilderAIModeConfigs) as jotai.Atom<Record<string, AIModeConfigType>>;
-        } else {
-            this.aiModeConfigs = atoms.waveaiModeConfigAtom;
-        }
-
-        this.hasPremiumAtom = jotai.atom((get) => {
-            const rateLimitInfo = get(atoms.waveAIRateLimitInfoAtom);
-            return !rateLimitInfo || rateLimitInfo.unknown || rateLimitInfo.preq > 0;
-        });
+        this.aiModeConfigs = atoms.waveaiModeConfigAtom;
 
         this.widgetAccessAtom = jotai.atom((get) => {
             if (this.inBuilder) {
@@ -141,29 +111,7 @@ export class WaveAIModel {
         });
 
         this.defaultModeAtom = jotai.atom((get) => {
-            const telemetryEnabled = get(getSettingsKeyAtom("telemetry:enabled")) ?? false;
-            if (this.inBuilder) {
-                return telemetryEnabled ? "waveaibuilder@default" : "invalid";
-            }
-            const aiModeConfigs = get(this.aiModeConfigs);
-            if (!telemetryEnabled) {
-                let mode = get(getSettingsKeyAtom("waveai:defaultmode"));
-                if (mode == null || mode.startsWith("waveai@")) {
-                    return "unknown";
-                }
-                return mode;
-            }
-            const hasPremium = get(this.hasPremiumAtom);
-            const waveFallback = hasPremium ? "waveai@balanced" : "waveai@quick";
-            let mode = get(getSettingsKeyAtom("waveai:defaultmode")) ?? waveFallback;
-            if (!hasPremium && mode.startsWith("waveai@")) {
-                mode = "waveai@quick";
-            }
-            const modeExists = aiModeConfigs != null && mode in aiModeConfigs;
-            if (!modeExists) {
-                mode = waveFallback;
-            }
-            return mode;
+            return resolveDefaultAIMode(get(this.aiModeConfigs), get(getSettingsKeyAtom("waveai:defaultmode")));
         });
 
         const defaultMode = globalStore.get(this.defaultModeAtom);
@@ -419,11 +367,6 @@ export class WaveAIModel {
     }
 
     isValidMode(mode: string): boolean {
-        const telemetryEnabled = globalStore.get(getSettingsKeyAtom("telemetry:enabled")) ?? false;
-        if (mode.startsWith("waveai@") && !telemetryEnabled) {
-            return false;
-        }
-
         const aiModeConfigs = globalStore.get(this.aiModeConfigs);
         if (aiModeConfigs == null || !(mode in aiModeConfigs)) {
             return false;

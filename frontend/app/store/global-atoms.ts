@@ -66,7 +66,7 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
             return false;
         }
         for (const presetId in fullConfig.presets) {
-            if (presetId.startsWith("ai@") && presetId !== "ai@global" && presetId !== "ai@wave") {
+            if (presetId.startsWith("ai@") && presetId !== "ai@global") {
                 return true;
             }
         }

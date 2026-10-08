@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -23,24 +22,6 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/util/utilfn"
 	"github.com/wavetermdev/waveterm/pkg/web/sse"
 )
-
-// sanitizeHostnameInError removes the Wave cloud hostname from error messages
-func sanitizeHostnameInError(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	errStr := err.Error()
-	parsedURL, parseErr := url.Parse(uctypes.DefaultAIEndpoint)
-	if parseErr == nil && parsedURL.Host != "" {
-		if strings.Contains(errStr, parsedURL.Host) {
-			errStr = strings.ReplaceAll(errStr, uctypes.DefaultAIEndpoint, "AI service")
-			errStr = strings.ReplaceAll(errStr, parsedURL.Host, "host")
-		}
-	}
-
-	return fmt.Errorf("%s", errStr)
-}
 
 // ---------- OpenAI wire types (subset) ----------
 
@@ -535,7 +516,7 @@ func RunOpenAIChatStep(
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, nil, nil, sanitizeHostnameInError(err)
+		return nil, nil, nil, err
 	}
 	defer resp.Body.Close()
 
@@ -546,13 +527,6 @@ func RunOpenAIChatStep(
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(ct, "text/event-stream") {
 		// Handle 429 rate limit with special logic
 		if resp.StatusCode == http.StatusTooManyRequests && rateLimitInfo != nil {
-			if rateLimitInfo.PReq == 0 && rateLimitInfo.Req > 0 {
-				// Premium requests exhausted, but regular requests available
-				stopReason := &uctypes.WaveStopReason{
-					Kind: uctypes.StopKindPremiumRateLimit,
-				}
-				return stopReason, nil, rateLimitInfo, nil
-			}
 			if rateLimitInfo.Req == 0 {
 				// All requests exhausted
 				stopReason := &uctypes.WaveStopReason{
