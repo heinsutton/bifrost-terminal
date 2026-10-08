@@ -17,7 +17,7 @@ It also supports durable SSH sessions that survive network interruptions and res
 
 ## Key Features
 
-- Wave AI - Context-aware terminal assistant that reads your terminal output, analyzes widgets, and performs file operations
+- AI assistant - Context-aware terminal assistant that reads your terminal output, analyzes widgets, and performs file operations
 - Durable SSH Sessions - Remote terminal sessions survive connection interruptions, network changes, and app restarts with automatic reconnection
 - Flexible drag & drop interface to organize terminal blocks, editors, web browsers, and AI assistants
 - Built-in editor for editing remote files with syntax highlighting and modern editor features
@@ -31,9 +31,9 @@ It also supports durable SSH sessions that survive network interruptions and res
 - Powerful `wsh` command system for managing your workspace from the CLI and sharing data between terminal sessions
 - Connected file management with `wsh file` - seamlessly copy and sync files between local and remote SSH hosts
 
-## Wave AI
+## AI assistant
 
-Wave AI is your context-aware terminal assistant with access to your workspace:
+The AI assistant is your context-aware terminal assistant with access to your workspace:
 
 - **Terminal Context**: Reads terminal output and scrollback for debugging and analysis
 - **File Operations**: Read, write, and edit files with automatic backups and user approval
@@ -42,7 +42,7 @@ Wave AI is your context-aware terminal assistant with access to your workspace:
 - **Local Models**: Run local models with Ollama, LM Studio, and other OpenAI-compatible providers
 - **Coming Soon**: Command execution (with approval)
 
-Upstream documentation for these features is at [docs.waveterm.dev](https://docs.waveterm.dev). It describes Wave Terminal and may differ from Bifrost Terminal.
+Upstream documentation for these features (called Wave AI upstream) is at [docs.waveterm.dev](https://docs.waveterm.dev). It describes Wave Terminal and may differ from Bifrost Terminal.
 
 ## Installation
 

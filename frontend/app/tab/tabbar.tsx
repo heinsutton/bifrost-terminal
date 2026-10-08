@@ -18,7 +18,6 @@ import { RealmChip } from "./realmchip";
 import { Tab } from "./tab";
 import "./tabbar.scss";
 import { TabBarEnv } from "./tabbarenv";
-import { UpdateStatusBanner } from "./updatebanner";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
 
 const TabDefaultWidth = 130;
@@ -137,7 +136,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const showMenuBar = useAtomValue(env.getSettingsKeyAtom("window:showmenubar"));
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
-    const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
     const dropHintIndex = useAtomValue(tabDropHintAtom);
     const windowTabIds = useAtomValue(env.atoms.windowTabIds);
     const isPopOutWindow = useAtomValue(env.atoms.isPopOutWindow);
@@ -288,7 +286,7 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         };
     }, [handleResizeTabs]);
 
-    // update layout on changed tabIds, tabsLoaded, newTabId, hideAiButton, appUpdateStatus, or zoomFactor
+    // update layout on changed tabIds, tabsLoaded, newTabId, hideAiButton, or zoomFactor
     useEffect(() => {
         // Check if all tabs are loaded
         const allLoaded = tabIds.length > 0 && tabIds.every((id) => tabsLoaded[id]);
@@ -305,7 +303,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         newTabId,
         saveTabsPosition,
         hideAiButton,
-        appUpdateStatus,
         zoomFactor,
         showMenuBar,
     ]);
@@ -763,7 +760,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
             </button>
             <div className="flex-1" />
             <div ref={rightContainerRef} className="flex flex-row gap-1 items-end">
-                {!isPopOutWindow && <UpdateStatusBanner />}
                 <div
                     className="h-full shrink-0 z-window-drag"
                     style={{ width: windowDragRightWidth, WebkitAppRegion: "drag" } as any}

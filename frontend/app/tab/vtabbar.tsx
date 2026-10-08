@@ -16,7 +16,6 @@ import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { RealmChip } from "./realmchip";
 import { buildTabBarContextMenu, buildTabContextMenu } from "./tabcontextmenu";
-import { UpdateStatusBanner } from "./updatebanner";
 import { VTab, VTabItem } from "./vtab";
 import { VTabBarEnv } from "./vtabbarenv";
 import { WorkspaceSwitcher } from "./workspaceswitcher";
@@ -88,7 +87,6 @@ const MacOSHeader = memo(() => {
                         >
                             <WorkspaceSwitcher />
                         </Tooltip>
-                        <UpdateStatusBanner />
                     </>
                 )}
             </div>

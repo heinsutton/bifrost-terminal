@@ -204,21 +204,6 @@
         "web:defaultsearch": {
           "type": "string"
         },
-        "autoupdate:*": {
-          "type": "boolean"
-        },
-        "autoupdate:enabled": {
-          "type": "boolean"
-        },
-        "autoupdate:intervalms": {
-          "type": "number"
-        },
-        "autoupdate:installonquit": {
-          "type": "boolean"
-        },
-        "autoupdate:channel": {
-          "type": "string"
-        },
         "markdown:fontsize": {
           "type": "number"
         },

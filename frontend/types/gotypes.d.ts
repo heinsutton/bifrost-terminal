@@ -1438,11 +1438,6 @@ declare global {
         "web:openlinksinternally"?: boolean;
         "web:defaulturl"?: string;
         "web:defaultsearch"?: string;
-        "autoupdate:*"?: boolean;
-        "autoupdate:enabled"?: boolean;
-        "autoupdate:intervalms"?: number;
-        "autoupdate:installonquit"?: boolean;
-        "autoupdate:channel"?: string;
         "markdown:fontsize"?: number;
         "markdown:fixedfontsize"?: number;
         "preview:showhiddenfiles"?: boolean;
@@ -1564,8 +1559,6 @@ declare global {
         "client:macos"?: string;
         "cohort:month"?: string;
         "cohort:isoweek"?: string;
-        "autoupdate:channel"?: string;
-        "autoupdate:enabled"?: boolean;
         "localshell:type"?: string;
         "localshell:version"?: string;
         "loc:countrycode"?: string;
@@ -1664,8 +1657,6 @@ declare global {
         "client:macos"?: string;
         "cohort:month"?: string;
         "cohort:isoweek"?: string;
-        "autoupdate:channel"?: string;
-        "autoupdate:enabled"?: boolean;
         "localshell:type"?: string;
         "localshell:version"?: string;
         "loc:countrycode"?: string;

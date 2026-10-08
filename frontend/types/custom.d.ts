@@ -24,7 +24,6 @@ declare global {
         controlShiftDelayAtom: jotai.PrimitiveAtom<boolean>;
         prefersReducedMotionAtom: jotai.Atom<boolean>;
         documentHasFocus: jotai.PrimitiveAtom<boolean>;
-        updaterStatusAtom: jotai.PrimitiveAtom<UpdaterStatus>;
         modalOpen: jotai.PrimitiveAtom<boolean>;
         allConnStatus: jotai.Atom<ConnStatus[]>;
         reinitVersion: jotai.PrimitiveAtom<number>;
@@ -107,10 +106,6 @@ declare global {
         onZoomFactorChange: (callback: (zoomFactor: number) => void) => void; // zoom-factor-change
         onZoomRequest: (callback: (action: ZoomAction) => void) => void; // zoom-request
         appZoom: (action: ZoomAction) => void; // app-zoom
-        onUpdaterStatusChange: (callback: (status: UpdaterStatus) => void) => void; // app-update-status
-        getUpdaterStatus: () => UpdaterStatus; // get-app-update-status
-        getUpdaterChannel: () => string; // get-updater-channel
-        installAppUpdate: () => void; // install-app-update
         onMenuItemAbout: (callback: () => void) => void; // menu-item-about
         updateWindowControlsOverlay: (rect: Dimensions) => void; // update-window-controls-overlay
         onReinjectKey: (callback: (waveEvent: WaveKeyboardEvent) => void) => void; // reinject-key
@@ -388,7 +383,6 @@ declare global {
         dispose?: () => void;
     }
 
-    type UpdaterStatus = "up-to-date" | "checking" | "downloading" | "ready" | "error" | "installing";
 
     type ZoomAction = "in" | "out" | "reset";
 

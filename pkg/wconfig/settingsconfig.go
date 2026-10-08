@@ -124,11 +124,6 @@ type SettingsType struct {
 	WebDefaultUrl          string `json:"web:defaulturl,omitempty"`
 	WebDefaultSearch       string `json:"web:defaultsearch,omitempty"`
 
-	AutoUpdateClear         bool    `json:"autoupdate:*,omitempty"`
-	AutoUpdateEnabled       bool    `json:"autoupdate:enabled,omitempty"`
-	AutoUpdateIntervalMs    float64 `json:"autoupdate:intervalms,omitempty"`
-	AutoUpdateInstallOnQuit bool    `json:"autoupdate:installonquit,omitempty"`
-	AutoUpdateChannel       string  `json:"autoupdate:channel,omitempty"`
 
 	MarkdownFontSize      float64 `json:"markdown:fontsize,omitempty"`
 	MarkdownFixedFontSize float64 `json:"markdown:fixedfontsize,omitempty"`
@@ -970,7 +965,7 @@ func (fc *FullConfigType) CountCustomAIModes() int {
 }
 
 // CountCustomSettings returns the number of settings in the user's settings file.
-// This excludes telemetry:enabled and autoupdate:channel which don't count as customizations.
+// This excludes telemetry:enabled which doesn't count as a customization.
 func CountCustomSettings() int {
 	// Load user settings
 	userSettings, _ := ReadWaveHomeConfigFile("settings.json")
@@ -978,10 +973,10 @@ func CountCustomSettings() int {
 		return 0
 	}
 
-	// Count all keys except telemetry:enabled and autoupdate:channel
+	// Count all keys except telemetry:enabled
 	count := 0
 	for key := range userSettings {
-		if key == "telemetry:enabled" || key == "autoupdate:channel" {
+		if key == "telemetry:enabled" {
 			continue
 		}
 		count++

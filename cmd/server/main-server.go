@@ -228,8 +228,6 @@ func startupActivityUpdate(firstLaunch bool) {
 	if err != nil {
 		log.Printf("error updating startup activity: %v\n", err)
 	}
-	autoUpdateChannel := telemetry.AutoUpdateChannel()
-	autoUpdateEnabled := telemetry.IsAutoUpdateEnabled()
 	shellType, shellVersion, shellErr := shellutil.DetectShellTypeAndVersion()
 	if shellErr != nil {
 		shellType = "error"
@@ -260,8 +258,6 @@ func startupActivityUpdate(firstLaunch bool) {
 			ClientIsDev:         wavebase.IsDevMode(),
 			ClientPackageType:   wavebase.ClientPackageType(),
 			ClientMacOSVersion:  wavebase.ClientMacOSVersion(),
-			AutoUpdateChannel:   autoUpdateChannel,
-			AutoUpdateEnabled:   autoUpdateEnabled,
 			LocalShellType:      shellType,
 			LocalShellVersion:   shellVersion,
 			SettingsTransparent: fullConfig.Settings.WindowTransparent,

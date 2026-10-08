@@ -9,7 +9,6 @@ export type TabBarEnv = WaveEnvSubset<{
         closeTab: WaveEnv["electron"]["closeTab"];
         setActiveTab: WaveEnv["electron"]["setActiveTab"];
         showWorkspaceAppMenu: WaveEnv["electron"]["showWorkspaceAppMenu"];
-        installAppUpdate: WaveEnv["electron"]["installAppUpdate"];
         popOutTab: WaveEnv["electron"]["popOutTab"];
         moveTabToWindow: WaveEnv["electron"]["moveTabToWindow"];
         focusMainWindow: WaveEnv["electron"]["focusMainWindow"];
@@ -30,7 +29,6 @@ export type TabBarEnv = WaveEnvSubset<{
         isFullScreen: WaveEnv["atoms"]["isFullScreen"];
         zoomFactorAtom: WaveEnv["atoms"]["zoomFactorAtom"];
         reinitVersion: WaveEnv["atoms"]["reinitVersion"];
-        updaterStatusAtom: WaveEnv["atoms"]["updaterStatusAtom"];
         workspace: WaveEnv["atoms"]["workspace"];
         windowTabIds: WaveEnv["atoms"]["windowTabIds"];
         isPopOutWindow: WaveEnv["atoms"]["isPopOutWindow"];

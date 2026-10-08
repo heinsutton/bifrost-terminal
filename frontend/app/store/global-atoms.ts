@@ -85,15 +85,6 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
     );
     const popOutWindowCountAtom: Atom<number> = atom((get) => countPopOutWindows(get(workspaceAtom)));
     const controlShiftDelayAtom = atom(false);
-    const updaterStatusAtom = atom<UpdaterStatus>("up-to-date") as PrimitiveAtom<UpdaterStatus>;
-    try {
-        globalStore.set(updaterStatusAtom, getApi().getUpdaterStatus());
-        getApi().onUpdaterStatusChange((status) => {
-            globalStore.set(updaterStatusAtom, status);
-        });
-    } catch (e) {
-        console.log("failed to initialize updaterStatusAtom", e);
-    }
 
     const reducedMotionSettingAtom = atom((get) => get(settingsAtom)?.["window:reducedmotion"]);
     const reducedMotionSystemPreferenceAtom = atom(false);
@@ -148,7 +139,6 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
         isFullScreen: isFullScreenAtom,
         zoomFactorAtom,
         controlShiftDelayAtom,
-        updaterStatusAtom,
         prefersReducedMotionAtom,
         documentHasFocus: documentHasFocusAtom,
         modalOpen,

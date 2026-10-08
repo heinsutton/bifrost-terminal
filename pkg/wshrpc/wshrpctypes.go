@@ -153,7 +153,6 @@ type WshRpcInterface interface {
 	// switching), which relies on that filtering to avoid blank menu
 	// entries and shortcut slots for scratch workspaces.
 	WorkspaceListAllCommand(ctx context.Context) ([]WorkspaceInfoData, error)
-	GetUpdateChannelCommand(ctx context.Context) (string, error)
 
 	// terminal
 	VDomCreateContextCommand(ctx context.Context, data vdom.VDomCreateContext) (*waveobj.ORef, error)

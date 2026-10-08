@@ -135,4 +135,4 @@ You can use the regular Chrome DevTools to debug the frontend application. You c
 
 ### Backend logs
 
-Backend logs for the development version of Wave can be found at `~/.waveterm-dev/waveapp.log`. Both the NodeJS backend from Electron and the main Go backend will log here.
+Backend logs for the development version of Bifrost Terminal can be found at `~/.waveterm-dev/waveapp.log`. Both the NodeJS backend from Electron and the main Go backend will log here.

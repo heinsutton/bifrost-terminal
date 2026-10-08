@@ -82,9 +82,6 @@ type TEventUserProps struct {
 	CohortMonth   string `json:"cohort:month,omitempty"`
 	CohortISOWeek string `json:"cohort:isoweek,omitempty"`
 
-	AutoUpdateChannel string `json:"autoupdate:channel,omitempty"`
-	AutoUpdateEnabled bool   `json:"autoupdate:enabled,omitempty"`
-
 	LocalShellType    string `json:"localshell:type,omitempty"`
 	LocalShellVersion string `json:"localshell:version,omitempty"`
 
