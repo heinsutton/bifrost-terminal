@@ -14,7 +14,6 @@ import (
 	"os/user"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,7 +30,6 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wavebase"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
 	"github.com/wavetermdev/waveterm/pkg/web/sse"
-	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wstore"
 )
 
@@ -40,9 +38,6 @@ const DefaultMaxTokens = 4 * 1024
 const BuilderMaxTokens = 24 * 1024
 
 var (
-	globalRateLimitInfo = &uctypes.RateLimitInfo{Unknown: true}
-	rateLimitLock       sync.Mutex
-
 	activeChats = ds.MakeSyncMap[bool]() // key is chatid
 )
 
@@ -139,34 +134,11 @@ func shouldUseChatCompletionsAPI(model string) bool {
 		strings.HasPrefix(m, "o1-")
 }
 
-func updateRateLimit(info *uctypes.RateLimitInfo) {
-	if info == nil {
-		return
-	}
-	rateLimitLock.Lock()
-	defer rateLimitLock.Unlock()
-	globalRateLimitInfo = info
-	go func() {
-		wps.Broker.Publish(wps.WaveEvent{
-			Event: wps.Event_WaveAIRateLimit,
-			Data:  info,
-		})
-	}()
-}
-
-func GetGlobalRateLimit() *uctypes.RateLimitInfo {
-	rateLimitLock.Lock()
-	defer rateLimitLock.Unlock()
-	return globalRateLimitInfo
-}
-
 func runAIChatStep(ctx context.Context, sseHandler *sse.SSEHandlerCh, backend UseChatBackend, chatOpts uctypes.WaveChatOpts, cont *uctypes.WaveContinueResponse) (*uctypes.WaveStopReason, []uctypes.GenAIMessage, error) {
 	if chatOpts.Config.APIType == uctypes.APIType_OpenAIResponses && shouldUseChatCompletionsAPI(chatOpts.Config.Model) {
 		return nil, nil, fmt.Errorf("Chat completions API not available (must use newer OpenAI models)")
 	}
-	stopReason, messages, rateLimitInfo, err := backend.RunChatStep(ctx, sseHandler, chatOpts, cont)
-	updateRateLimit(rateLimitInfo)
-	return stopReason, messages, err
+	return backend.RunChatStep(ctx, sseHandler, chatOpts, cont)
 }
 
 func getUsage(msgs []uctypes.GenAIMessage) uctypes.AIUsage {

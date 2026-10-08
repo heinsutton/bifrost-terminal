@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { BifrostLogo } from "@/app/asset/bifrost-logo";
-import { InitPage, NoTelemetryStarPage } from "@/app/onboarding/onboarding";
+import { InitPage } from "@/app/onboarding/onboarding";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
 import { DurableSessionPage } from "@/app/onboarding/onboarding-durable";
 import { FilesPage, MagnifyBlocksPage, WaveAIPage } from "@/app/onboarding/onboarding-features";
-import { StarAskPage } from "@/app/onboarding/onboarding-starask";
 import { UpgradeMinorWelcomePage } from "@/app/onboarding/onboarding-upgrade-minor";
 import { UpgradeOnboardingFooter, UpgradeOnboardingVersions } from "@/app/onboarding/onboarding-upgrade-patch";
 
@@ -24,10 +23,7 @@ function OnboardingFeaturesV() {
     return (
         <div className="flex flex-col w-full gap-8">
             <OnboardingModalWrapper width="w-[560px]">
-                <InitPage isCompact={false} telemetryUpdateFn={async () => {}} />
-            </OnboardingModalWrapper>
-            <OnboardingModalWrapper width="w-[560px]">
-                <NoTelemetryStarPage isCompact={false} />
+                <InitPage isCompact={false} />
             </OnboardingModalWrapper>
             <OnboardingModalWrapper width="w-[800px]">
                 <WaveAIPage onNext={noop} onSkip={noop} />
@@ -59,7 +55,7 @@ function UpgradeOnboardingPatchV() {
                                 <BifrostLogo />
                             </div>
                             <div className="text-center text-[25px] font-normal text-foreground">
-                                Wave {version.version} Update
+                                Wave Terminal {version.version} Update
                             </div>
                         </header>
                         <div className="flex-1">{version.content()}</div>
@@ -83,16 +79,7 @@ function UpgradeOnboardingMinorV() {
     const noop = () => {};
     return (
         <OnboardingModalWrapper width="w-[600px]">
-            <UpgradeMinorWelcomePage onStarClick={noop} onAlreadyStarred={noop} onMaybeLater={noop} />
-        </OnboardingModalWrapper>
-    );
-}
-
-function StarAskV() {
-    const noop = () => {};
-    return (
-        <OnboardingModalWrapper width="w-[500px]">
-            <StarAskPage onClose={noop} />
+            <UpgradeMinorWelcomePage onContinue={noop} />
         </OnboardingModalWrapper>
     );
 }
@@ -104,8 +91,6 @@ export function OnboardingPreview() {
             <OnboardingFeaturesV />
             <div className="text-sm font-mono text-muted mt-6">Onboarding minor upgrade</div>
             <UpgradeOnboardingMinorV />
-            <div className="text-sm font-mono text-muted mt-6">Onboarding star ask</div>
-            <StarAskV />
             <div className="text-sm font-mono text-muted mt-6">Onboarding patch updates</div>
             <UpgradeOnboardingPatchV />
         </div>

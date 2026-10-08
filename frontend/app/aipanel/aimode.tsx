@@ -183,7 +183,7 @@ export const AIModeDropdown = memo(({ compatibilityMode = false }: AIModeDropdow
                     content={
                         <div className="max-w-xs">
                             Warning: This custom mode was configured without the "tools" capability in the
-                            "ai:capabilities" array. Without tool support, Wave AI will not be able to interact with
+                            "ai:capabilities" array. Without tool support, the AI panel will not be able to interact with
                             widgets or files.
                         </div>
                     }

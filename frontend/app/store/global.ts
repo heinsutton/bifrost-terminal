@@ -91,12 +91,6 @@ function initGlobalWaveEventSubs(initOpts: WaveInitOpts) {
             }
         },
     });
-    waveEventSubscribeSingle({
-        eventType: "waveai:ratelimit",
-        handler: (event) => {
-            globalStore.set(atoms.waveAIRateLimitInfoAtom, event.data);
-        },
-    });
     setupBadgesSubscription();
 }
 

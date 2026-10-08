@@ -323,19 +323,6 @@ const SettingsFloatingWindow = memo(
                     onClose();
                 },
             },
-            {
-                icon: "circle-question",
-                label: "Help",
-                onClick: () => {
-                    const blockDef: BlockDef = {
-                        meta: {
-                            view: "help",
-                        },
-                    };
-                    env.createBlock(blockDef);
-                    onClose();
-                },
-            },
         ];
 
         return (

@@ -412,7 +412,7 @@ export class TermViewModel implements ViewModel {
                 elemtype: "iconbutton",
                 icon,
                 className: "text-muted",
-                title: "No shell integration — Wave AI unable to run commands.",
+                title: "No shell integration — AI unable to run commands.",
                 noAction: true,
             };
         }
@@ -421,21 +421,21 @@ export class TermViewModel implements ViewModel {
                 elemtype: "iconbutton",
                 icon,
                 className: "text-accent",
-                title: "Shell ready — Wave AI can run commands in this terminal.",
+                title: "Shell ready — AI can run commands in this terminal.",
                 noAction: true,
             };
         }
         if (shellIntegrationStatus === "running-command") {
             let title = claudeCodeActive
                 ? "Claude Code Detected"
-                : "Shell busy — Wave AI unable to run commands while another command is running.";
+                : "Shell busy — AI unable to run commands while another command is running.";
 
             if (this.termRef.current) {
                 const inAltBuffer = this.termRef.current.terminal?.buffer?.active?.type === "alternate";
                 const lastCommand = get(this.termRef.current.lastCommandAtom);
                 const blockingCmd = getBlockingCommand(lastCommand, inAltBuffer);
                 if (blockingCmd) {
-                    title = `Wave AI integration disabled while you're inside ${blockingCmd}.`;
+                    title = `AI integration disabled while you're inside ${blockingCmd}.`;
                 }
             }
 
@@ -844,7 +844,7 @@ export class TermViewModel implements ViewModel {
             if (!WorkspaceLayoutModel.getInstance().isAIHidden()) {
                 menu.push({ type: "separator" });
                 menu.push({
-                    label: "Send to Wave AI",
+                    label: "Send to AI",
                     click: () => {
                         if (selection) {
                             const aiModel = WaveAIModel.getInstance();

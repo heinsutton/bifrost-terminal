@@ -47,7 +47,7 @@ const UpgradeOnboardingModal_v0_14_2_Content = () => {
                                     }
                                     className="text-accent text-sm font-normal cursor-pointer hover:underline"
                                 >
-                                    [see docs]
+                                    [Wave Terminal docs]
                                 </button>
                             </li>
                         </ul>

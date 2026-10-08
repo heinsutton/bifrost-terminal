@@ -28,7 +28,6 @@ declare global {
         modalOpen: jotai.PrimitiveAtom<boolean>;
         allConnStatus: jotai.Atom<ConnStatus[]>;
         reinitVersion: jotai.PrimitiveAtom<number>;
-        waveAIRateLimitInfoAtom: jotai.PrimitiveAtom<RateLimitInfo>;
         isPopOutWindow: jotai.Atom<boolean>; // static, from the init opts: this window is a popped-out window
         windowTabIds: jotai.Atom<string[]>; // tabs shown in this window, in workspace order
         popOutWindowCount: jotai.Atom<number>; // number of popped-out windows of this realm

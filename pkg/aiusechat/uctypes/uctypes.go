@@ -214,7 +214,6 @@ const (
 	StopKindCanceled  StopReasonKind = "canceled"
 	StopKindError     StopReasonKind = "error"
 	StopKindPauseTurn StopReasonKind = "pause_turn"
-	StopKindRateLimit StopReasonKind = "rate_limit"
 )
 
 type WaveToolCall struct {
@@ -513,68 +512,6 @@ func (opts *WaveChatOpts) GetToolDefinition(toolName string) *ToolDefinition {
 type ProxyErrorResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
-}
-
-type RateLimitInfo struct {
-	Req        int   `json:"req"`
-	ReqLimit   int   `json:"reqlimit"`
-	PReq       int   `json:"preq"`
-	PReqLimit  int   `json:"preqlimit"`
-	ResetEpoch int64 `json:"resetepoch"`
-	Unknown    bool  `json:"unknown,omitempty"`
-}
-
-// ParseRateLimitHeader parses the X-Wave-RateLimit header
-// Format: X-Wave-RateLimit: req=<remaining>, reqlimit=<max_requests>, preq=<premium_remaining>, preqlimit=<max_premium>, reset=<expiration_epoch_seconds>
-// Example: X-Wave-RateLimit: req=180, reqlimit=200, preq=45, preqlimit=50, reset=1727818382
-// - req: remaining regular requests in the current window
-// - reqlimit: maximum regular requests allowed in the window
-// - preq: remaining premium requests in the current window
-// - preqlimit: maximum premium requests allowed in the window
-// - reset: unix timestamp (epoch seconds) when the rate limit window resets
-func ParseRateLimitHeader(header string) *RateLimitInfo {
-	if header == "" {
-		return nil
-	}
-
-	info := &RateLimitInfo{}
-	parts := strings.Split(header, ",")
-
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		kv := strings.SplitN(part, "=", 2)
-		if len(kv) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(kv[0])
-		value := strings.TrimSpace(kv[1])
-
-		switch key {
-		case "req":
-			if val, err := fmt.Sscanf(value, "%d", &info.Req); err == nil && val == 1 {
-				// Successfully parsed
-			}
-		case "reqlimit":
-			if val, err := fmt.Sscanf(value, "%d", &info.ReqLimit); err == nil && val == 1 {
-				// Successfully parsed
-			}
-		case "preq":
-			if val, err := fmt.Sscanf(value, "%d", &info.PReq); err == nil && val == 1 {
-				// Successfully parsed
-			}
-		case "preqlimit":
-			if val, err := fmt.Sscanf(value, "%d", &info.PReqLimit); err == nil && val == 1 {
-				// Successfully parsed
-			}
-		case "reset":
-			if val, err := fmt.Sscanf(value, "%d", &info.ResetEpoch); err == nil && val == 1 {
-				// Successfully parsed
-			}
-		}
-	}
-
-	return info
 }
 
 func AreModelsCompatible(apiType, model1, model2 string) bool {

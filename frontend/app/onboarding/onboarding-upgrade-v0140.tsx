@@ -26,7 +26,7 @@ const UpgradeOnboardingModal_v0_14_0_Content = () => {
                             onClick={() => waveEnv.electron.openExternal("https://docs.waveterm.dev/durable-sessions")}
                             className="text-accent text-sm font-normal cursor-pointer hover:underline"
                         >
-                            [see docs]
+                            [Wave Terminal docs]
                         </button>
                     </div>
                     <div className="text-secondary leading-5">

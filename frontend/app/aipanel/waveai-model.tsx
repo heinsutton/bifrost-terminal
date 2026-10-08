@@ -174,7 +174,7 @@ export class WaveAIModel {
 
     async addFileFromRemoteUri(draggedFile: DraggedFile): Promise<void> {
         if (draggedFile.isDir) {
-            this.setError("Cannot add directories to Wave AI. Please select a file.");
+            this.setError("Cannot add directories to AI. Please select a file.");
             return;
         }
 
@@ -185,7 +185,7 @@ export class WaveAIModel {
                 return;
             }
             if (fileInfo.isdir) {
-                this.setError("Cannot add directories to Wave AI. Please select a file.");
+                this.setError("Cannot add directories to AI. Please select a file.");
                 return;
             }
 
@@ -523,21 +523,6 @@ export class WaveAIModel {
         setTimeout(() => {
             this.scrollToBottom();
         }, 100);
-    }
-
-    async ensureRateLimitSet() {
-        const currentInfo = globalStore.get(atoms.waveAIRateLimitInfoAtom);
-        if (currentInfo != null) {
-            return;
-        }
-        try {
-            const rateLimitInfo = await RpcApi.GetWaveAIRateLimitCommand(TabRpcClient);
-            if (rateLimitInfo != null) {
-                globalStore.set(atoms.waveAIRateLimitInfoAtom, rateLimitInfo);
-            }
-        } catch (error) {
-            console.error("Failed to fetch rate limit info:", error);
-        }
     }
 
     handleAIFeedback(feedback: "good" | "bad") {

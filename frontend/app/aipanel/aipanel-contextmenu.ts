@@ -4,7 +4,6 @@
 import { waveAIHasSelection } from "@/app/aipanel/waveai-focus-utils";
 import { ContextMenuModel } from "@/app/store/contextmenu";
 import { isDev } from "@/app/store/global";
-import { globalStore } from "@/app/store/jotaiStore";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { WaveAIModel } from "./waveai-model";
@@ -148,7 +147,7 @@ export async function handleWaveAIContextMenu(e: React.MouseEvent, showCopy: boo
         menu.push({ type: "separator" });
 
         menu.push({
-            label: "Hide Wave AI",
+            label: "Hide AI",
             click: () => {
                 model.closeWaveAIPanel();
             },

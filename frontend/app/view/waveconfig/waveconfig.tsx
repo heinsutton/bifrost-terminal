@@ -190,9 +190,9 @@ const WaveConfigView = memo(({ blockId, model }: ViewComponentProps<WaveConfigVi
                                         {selectedFile.name}
                                     </div>
                                     {selectedFile.docsUrl && (
-                                        <Tooltip content="View documentation">
+                                        <Tooltip content="View Wave Terminal documentation">
                                             <a
-                                                href={`${selectedFile.docsUrl}?ref=waveconfig`}
+                                                href={selectedFile.docsUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="!text-muted-foreground hover:!text-primary transition-colors ml-1 shrink-0 cursor-pointer"

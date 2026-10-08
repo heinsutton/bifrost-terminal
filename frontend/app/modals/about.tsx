@@ -15,11 +15,10 @@ import { Modal } from "./modal";
 
 interface AboutModalVProps {
     versionString: string;
-    updaterChannel: string;
     onClose: () => void;
 }
 
-const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProps) => {
+const AboutModalV = ({ versionString, onClose }: AboutModalVProps) => {
     const currentDate = new Date();
 
     return (
@@ -28,7 +27,7 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
             <div className="flex flex-col gap-[26px] w-full relative z-10">
                 <div className="flex flex-col items-center justify-center gap-4 self-stretch w-full text-center">
                     <BifrostLogo />
-                    <div className="text-[25px]">Wave Terminal</div>
+                    <div className="text-[25px]">Bifrost Terminal</div>
                     <div className="leading-5">
                         Open-Source AI-Integrated Terminal
                         <br />
@@ -37,12 +36,10 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
                 </div>
                 <div className="items-center gap-4 self-stretch w-full text-center">
                     Client Version {versionString}
-                    <br />
-                    Update Channel: {updaterChannel}
                 </div>
                 <div className="grid grid-cols-2 gap-[10px] self-stretch w-full">
                     <a
-                        href="https://github.com/wavetermdev/waveterm?ref=about"
+                        href="https://github.com/heinsutton/bifrost-terminal"
                         target="_blank"
                         rel="noopener"
                         className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
@@ -50,15 +47,7 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
                         <i className="fa-brands fa-github mr-2"></i>GitHub
                     </a>
                     <a
-                        href="https://www.waveterm.dev/?ref=about"
-                        target="_blank"
-                        rel="noopener"
-                        className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
-                    >
-                        <i className="fa-sharp fa-light fa-globe mr-2"></i>Website
-                    </a>
-                    <a
-                        href="https://github.com/wavetermdev/waveterm/blob/main/ACKNOWLEDGEMENTS.md"
+                        href="https://github.com/heinsutton/bifrost-terminal/blob/main/ACKNOWLEDGEMENTS.md"
                         target="_blank"
                         rel="noopener"
                         className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
@@ -66,12 +55,12 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
                         <i className="fa-sharp fa-light fa-book mr-2"></i>Open Source
                     </a>
                     <a
-                        href="https://github.com/sponsors/wavetermdev"
+                        href="https://github.com/wavetermdev/waveterm"
                         target="_blank"
                         rel="noopener"
                         className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
                     >
-                        <i className="fa-sharp fa-light fa-heart mr-2"></i>Sponsor
+                        <i className="fa-brands fa-github mr-2"></i>Based on Wave Terminal
                     </a>
                 </div>
                 <div className="items-center gap-4 self-stretch w-full text-center">
@@ -87,7 +76,6 @@ AboutModalV.displayName = "AboutModalV";
 const AboutModal = () => {
     const fullConfig = useAtomValue(atoms.fullConfigAtom);
     const versionString = `${fullConfig?.version ?? ""} (${isDev() ? "dev-" : ""}${fullConfig?.buildtime ?? ""})`;
-    const updaterChannel = fullConfig?.settings?.["autoupdate:channel"] ?? "latest";
 
     useEffect(() => {
         fireAndForget(async () => {
@@ -102,7 +90,6 @@ const AboutModal = () => {
     return (
         <AboutModalV
             versionString={versionString}
-            updaterChannel={updaterChannel}
             onClose={() => modalsModel.popModal()}
         />
     );

@@ -54,19 +54,15 @@ export function checkIfRunningUnderARM64Translation(fullConfig: FullConfigType) 
             type: "warning",
             buttons: ["Dismiss", "Learn More"],
             title: "Bifrost Terminal has detected a performance issue",
-            message: `Bifrost Terminal is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from our website for optimal performance.`,
+            message: `Bifrost Terminal is running in ARM64 translation mode which may impact performance.\n\nRecommendation: Download the native ARM64 version from the Bifrost Terminal releases page on GitHub for optimal performance.`,
         };
 
         const choice = dialog.showMessageBoxSync(null, dialogOpts);
         if (choice === 1) {
-            // Open the documentation URL
+            // Open the releases page
             console.log("User chose to learn more");
-            fireAndForget(() =>
-                shell.openExternal(
-                    "https://docs.waveterm.dev/faq#why-does-wave-warn-me-about-arm64-translation-when-it-launches"
-                )
-            );
-            throw new Error("User redirected to docsite to learn more about ARM64 translation, exiting");
+            fireAndForget(() => shell.openExternal("https://github.com/heinsutton/bifrost-terminal/releases"));
+            throw new Error("User redirected to the releases page for the native ARM64 build, exiting");
         } else {
             console.log("User dismissed the dialog");
         }

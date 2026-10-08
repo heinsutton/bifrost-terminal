@@ -36,9 +36,6 @@ export function blockViewToIcon(view: string): string {
     if (view == "waveai") {
         return "sparkles";
     }
-    if (view == "help") {
-        return "circle-question";
-    }
     if (view == "tips") {
         return "lightbulb";
     }
@@ -62,10 +59,7 @@ export function blockViewToName(view: string): string {
         return "Web";
     }
     if (view == "waveai") {
-        return "WaveAI";
-    }
-    if (view == "help") {
-        return "Help";
+        return "AI";
     }
     if (view == "tips") {
         return "Tips";

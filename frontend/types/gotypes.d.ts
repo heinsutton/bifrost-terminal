@@ -1316,16 +1316,6 @@ declare global {
         cpusum?: number;
     };
 
-    // uctypes.RateLimitInfo
-    type RateLimitInfo = {
-        req: number;
-        reqlimit: number;
-        preq: number;
-        preqlimit: number;
-        resetepoch: number;
-        unknown?: boolean;
-    };
-
     // wshrpc.RemoteInfo
     type RemoteInfo = {
         clientarch: string;
@@ -1642,8 +1632,6 @@ declare global {
         "waveai:toolusecount"?: number;
         "waveai:tooluseerrorcount"?: number;
         "waveai:tooldetail"?: {[key: string]: number};
-        "waveai:premiumreq"?: number;
-        "waveai:proxyreq"?: number;
         "waveai:haderror"?: boolean;
         "waveai:imagecount"?: number;
         "waveai:pdfcount"?: number;

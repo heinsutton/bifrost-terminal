@@ -32,7 +32,7 @@ function LearnMoreButton() {
             className="text-muted text-xs hover:underline cursor-pointer text-left"
             onClick={() => waveEnv.electron.openExternal("https://docs.waveterm.dev/durable-sessions")}
         >
-            Learn More
+            Learn more (Wave Terminal docs)
         </button>
     );
 }

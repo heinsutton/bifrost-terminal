@@ -187,7 +187,6 @@ function makeMockGlobalAtoms(
         modalOpen: atom(false) as any,
         allConnStatus: atom([] as ConnStatus[]),
         reinitVersion: atom(0) as any,
-        waveAIRateLimitInfoAtom: atom(null) as any,
         isPopOutWindow: atom(false),
         windowTabIds: atom((get) => getWindowTabIds(get(workspaceAtom), "", false)),
         popOutWindowCount: atom((get) => countPopOutWindows(get(workspaceAtom))),

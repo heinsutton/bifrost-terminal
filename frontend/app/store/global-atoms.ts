@@ -132,7 +132,6 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
         return connStatuses;
     });
     const reinitVersion = atom(0);
-    const rateLimitInfoAtom = atom(null) as PrimitiveAtom<RateLimitInfo>;
     atoms = {
         // initialized in wave.ts (will not be null inside of application)
         builderId: builderIdAtom,
@@ -155,7 +154,6 @@ function initGlobalAtoms(initOpts: GlobalInitOptions) {
         modalOpen,
         allConnStatus: allConnStatusAtom,
         reinitVersion,
-        waveAIRateLimitInfoAtom: rateLimitInfoAtom,
         isPopOutWindow: isPopOutWindowAtom,
         windowTabIds: windowTabIdsAtom,
         popOutWindowCount: popOutWindowCountAtom,
