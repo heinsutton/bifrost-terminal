@@ -61,24 +61,25 @@ const config = {
         entitlements: "build/entitlements.mac.plist",
         entitlementsInherit: "build/entitlements.mac.plist",
         extendInfo: {
-            NSContactsUsageDescription: "A CLI application running in Wave wants to use your contacts.",
-            NSRemindersUsageDescription: "A CLI application running in Wave wants to use your reminders.",
+            NSContactsUsageDescription: "A CLI application running in Bifrost Terminal wants to use your contacts.",
+            NSRemindersUsageDescription: "A CLI application running in Bifrost Terminal wants to use your reminders.",
             NSLocationWhenInUseUsageDescription:
-                "A CLI application running in Wave wants to use your location information while active.",
+                "A CLI application running in Bifrost Terminal wants to use your location information while active.",
             NSLocationAlwaysUsageDescription:
-                "A CLI application running in Wave wants to use your location information, even in the background.",
-            NSCameraUsageDescription: "A CLI application running in Wave wants to use the camera.",
-            NSMicrophoneUsageDescription: "A CLI application running in Wave wants to use your microphone.",
-            NSCalendarsUsageDescription: "A CLI application running in Wave wants to use Calendar data.",
-            NSLocationUsageDescription: "A CLI application running in Wave wants to use your location information.",
-            NSAppleEventsUsageDescription: "A CLI application running in Wave wants to use AppleScript.",
+                "A CLI application running in Bifrost Terminal wants to use your location information, even in the background.",
+            NSCameraUsageDescription: "A CLI application running in Bifrost Terminal wants to use the camera.",
+            NSMicrophoneUsageDescription: "A CLI application running in Bifrost Terminal wants to use your microphone.",
+            NSCalendarsUsageDescription: "A CLI application running in Bifrost Terminal wants to use Calendar data.",
+            NSLocationUsageDescription:
+                "A CLI application running in Bifrost Terminal wants to use your location information.",
+            NSAppleEventsUsageDescription: "A CLI application running in Bifrost Terminal wants to use AppleScript.",
         },
     },
     linux: {
         artifactName: "${name}-${platform}-${arch}-${version}.${ext}",
         category: "TerminalEmulator",
         executableName: pkg.name,
-        target: ["zip", "deb", "rpm", "snap", "AppImage", "pacman"],
+        target: ["zip", "deb", "rpm", "AppImage", "pacman"],
         synopsis: pkg.description,
         description: null,
         desktop: {
@@ -98,19 +99,20 @@ const config = {
         target: ["nsis", "msi", "zip"],
         signtoolOptions: windowsShouldSign && {
             signingHashAlgorithms: ["sha256"],
-            publisherName: "Command Line Inc",
-            certificateSubjectName: "Command Line Inc",
+            publisherName: "Bifrost Terminal",
+            certificateSubjectName: "Bifrost Terminal",
             certificateSha1: process.env.SM_CODE_SIGNING_CERT_SHA1_HASH,
         },
     },
+    nsis: {
+        // GUID electron-builder derived from the former appId dev.commandline.waveterm; keeps installs upgrading in place
+        guid: "acb9179c-3638-5f0d-8173-399943676f25",
+    },
+    msi: {
+        upgradeCode: "E95AA409-D7A8-5E4D-8D2B-F171708215E0",
+    },
     appImage: {
         license: "LICENSE",
-    },
-    snap: {
-        base: "core22",
-        confinement: "classic",
-        allowNativeWayland: true,
-        artifactName: "${name}_${version}_${arch}.${ext}",
     },
     rpm: {
         // this should remove /usr/lib/.build-id/ links which can conflict with other electron apps like slack

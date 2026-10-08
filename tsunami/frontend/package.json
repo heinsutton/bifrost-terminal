@@ -1,8 +1,7 @@
 {
     "name": "tsunami-frontend",
     "author": {
-        "name": "Command Line Inc",
-        "email": "info@commandline.dev"
+        "name": "heinsutton"
     },
     "description": "Tsunami Frontend - React application",
     "license": "Apache-2.0",

@@ -529,8 +529,7 @@ tasks:
             - npm --no-workspaces init -y --init-license Apache-2.0
             - npm pkg set name=tsunami-scaffold
             - npm pkg delete author
-            - npm pkg set author.name="Command Line Inc"
-            - npm pkg set author.email="info@commandline.dev"
+            - npm pkg set author.name="heinsutton"
             - npm --no-workspaces install tailwindcss@4.1.13 @tailwindcss/cli@4.1.13
 
     tsunami:scaffold:internal:
