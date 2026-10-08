@@ -35,3 +35,18 @@ function Assert-BuildTools {
         }
     }
 }
+
+$SigningCertSubject = "CN=Bifrost Terminal (heinsutton)"
+$CodeSigningEku = "1.3.6.1.5.5.7.3.3"
+
+function Get-SigningCert([int]$MinValidDays = 0) {
+    Get-ChildItem Cert:\CurrentUser\My -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Subject -eq $SigningCertSubject -and
+            $_.HasPrivateKey -and
+            $_.NotAfter -gt (Get-Date).AddDays($MinValidDays) -and
+            ($_.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq $CodeSigningEku })
+        } |
+        Sort-Object NotAfter -Descending |
+        Select-Object -First 1
+}

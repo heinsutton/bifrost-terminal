@@ -33,11 +33,19 @@ The full rule is in [`.kilocode/rules/rules.md`](.kilocode/rules/rules.md) under
 - Picks a supported Node (24, 22 or 20) for the process; Node 26 breaks `npm install`.
 - Deletes `make\`, then runs `task build:backend build:tsunamiscaffold --force` (`wavesrv`, `wsh`, tsunami scaffold).
 - Runs `npm run build:prod` (Vite) and `electron-builder` with [`electron-builder.config.cjs`](./electron-builder.config.cjs), NSIS target only.
-- Checks that `wavesrv.x64.exe` is inside the packaged app.
+- Checks that `wavesrv.x64.exe` is inside the packaged app, and when signing, that every executable above carries the certificate.
 
 Use it instead of `task package`: that task runs `clean` in parallel with the backend build and can produce an installer without `wavesrv`.
 
+## Signing
+
+Local builds are signed with a self-signed code-signing certificate so IT can exclude Bifrost Terminal in SentinelOne by signer.
+
+1. Run `.\scripts\new-signing-cert.ps1` once. It creates `CN=Bifrost Terminal (heinsutton)` in `Cert:\CurrentUser\My` (non-exportable key) and writes the public part to `%USERPROFILE%\bifrost-signing.cer`. Re-running reuses the certificate until 30 days before it expires.
+2. Give IT the `.cer`.
+3. `package-local.ps1` finds the certificate and signs the installer, uninstaller, `Bifrost Terminal.exe`, `wavesrv.x64.exe` and the Windows `wsh` exes, then verifies each signer thumbprint. Without the certificate it warns and builds unsigned; `-RequireSigning` fails instead.
+
 ## Not done
 
-- No code signing or notarization; the installer is unsigned.
+- No notarization; without the certificate the installer is unsigned.
 - No automatic updates, package-manager publishing (Homebrew, WinGet, Chocolatey, Snap) or S3 artifact buckets. The upstream Wave Terminal release process that used these has been removed from this fork.

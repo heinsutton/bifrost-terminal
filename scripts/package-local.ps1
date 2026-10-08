@@ -11,9 +11,13 @@
 # Usage (from anywhere):
 #   .\scripts\package-local.ps1             # build the installer only
 #   .\scripts\package-local.ps1 -Install    # build, close Bifrost Terminal, install silently over the existing install
+#   .\scripts\package-local.ps1 -RequireSigning   # fail instead of building unsigned when the signing certificate is missing
+#
+# Signing: if scripts\new-signing-cert.ps1 has created the certificate, the build is signed with it (see RELEASES.md).
 
 param(
-    [switch]$Install
+    [switch]$Install,
+    [switch]$RequireSigning
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,10 +33,34 @@ function Invoke-Step([string]$Name, [scriptblock]$Command) {
     }
 }
 
+function Assert-Signed([string]$Path, [string]$Thumbprint) {
+    if (-not (Test-Path $Path)) {
+        throw "Cannot verify signature, file is missing: $Path"
+    }
+    $signer = (Get-AuthenticodeSignature $Path).SignerCertificate
+    if ($signer -eq $null -or $signer.Thumbprint -ne $Thumbprint) {
+        throw "$Path is not signed by certificate $Thumbprint"
+    }
+    Write-Host "Signed: $Path"
+}
+
 Push-Location $RepoRoot
 try {
     Use-SupportedNode
     Assert-BuildTools
+
+    $signingCert = Get-SigningCert
+    if ($signingCert) {
+        $env:BIFROST_SIGN_CERT_SHA1 = $signingCert.Thumbprint
+        Write-Host "Signing with $($signingCert.Subject) ($($signingCert.Thumbprint))" -ForegroundColor Green
+    }
+    elseif ($RequireSigning) {
+        throw "No valid code-signing certificate '$SigningCertSubject' in Cert:\CurrentUser\My; run scripts\new-signing-cert.ps1"
+    }
+    else {
+        Remove-Item Env:\BIFROST_SIGN_CERT_SHA1 -ErrorAction SilentlyContinue
+        Write-Warning "No code-signing certificate '$SigningCertSubject' found; building UNSIGNED. Run scripts\new-signing-cert.ps1 once, or pass -RequireSigning to fail instead."
+    }
 
     Remove-Item -Recurse -Force (Join-Path $RepoRoot "make") -ErrorAction SilentlyContinue
     Invoke-Step "Backend (wavesrv, wsh, tsunami scaffold)" { task build:backend build:tsunamiscaffold --force }
@@ -49,6 +77,22 @@ try {
     if ($installer -eq $null) {
         throw "Installer not found in make\"
     }
+
+    if ($signingCert) {
+        Write-Host ""
+        Write-Host "==> Verifying signatures" -ForegroundColor Cyan
+        $unpackedBin = Join-Path $RepoRoot "make\win-unpacked\resources\app.asar.unpacked\dist\bin"
+        $packagedWsh = Get-ChildItem $unpackedBin -Filter "wsh-*-windows*.exe"
+        if (-not $packagedWsh) {
+            throw "Packaged app has no Windows wsh exe in $unpackedBin"
+        }
+        $toVerify = @($installer.FullName, (Join-Path $RepoRoot "make\win-unpacked\Bifrost Terminal.exe"), $packagedSrv) +
+            @($packagedWsh | ForEach-Object { $_.FullName })
+        foreach ($file in $toVerify) {
+            Assert-Signed $file $signingCert.Thumbprint
+        }
+    }
+
     Write-Host ""
     Write-Host "Built $($installer.FullName)" -ForegroundColor Green
 

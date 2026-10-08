@@ -3,7 +3,7 @@ const pkg = require("./package.json");
 const fs = require("fs");
 const path = require("path");
 
-const windowsShouldSign = !!process.env.SM_CODE_SIGNING_CERT_SHA1_HASH;
+const windowsShouldSign = !!process.env.BIFROST_SIGN_CERT_SHA1;
 
 /**
  * @type {import('electron-builder').Configuration}
@@ -99,9 +99,9 @@ const config = {
         target: ["nsis", "msi", "zip"],
         signtoolOptions: windowsShouldSign && {
             signingHashAlgorithms: ["sha256"],
-            publisherName: "Bifrost Terminal",
-            certificateSubjectName: "Bifrost Terminal",
-            certificateSha1: process.env.SM_CODE_SIGNING_CERT_SHA1_HASH,
+            publisherName: "Bifrost Terminal (heinsutton)",
+            certificateSubjectName: "Bifrost Terminal (heinsutton)",
+            certificateSha1: process.env.BIFROST_SIGN_CERT_SHA1,
         },
     },
     nsis: {
