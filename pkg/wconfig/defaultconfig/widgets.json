@@ -50,5 +50,15 @@
                 "view": "processviewer"
             }
         }
+    },
+    "defwidget@claudesessions": {
+        "display:order": 0,
+        "icon": "robot",
+        "label": "claude",
+        "blockdef": {
+            "meta": {
+                "view": "claudesessions"
+            }
+        }
     }
 }
