@@ -192,8 +192,9 @@ export class WaveBrowserWindow extends BaseWindow {
         } else if (opts.unamePlatform === "linux") {
             winOpts.titleBarStyle = settings["window:nativetitlebar"] ? "default" : "hidden";
             winOpts.titleBarOverlay = {
-                symbolColor: "white",
-                color: "#00000000",
+                color: "#0e1117",
+                symbolColor: "#c3c8c2",
+                height: 32,
             };
             winOpts.icon = path.join(getElectronAppBasePath(), "public/logos/bifrost-icon.png");
             winOpts.autoHideMenuBar = !settings?.["window:showmenubar"];

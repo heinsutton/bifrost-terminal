@@ -676,6 +676,12 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
         } else {
             windowDragRightWidth = 139;
         }
+    } else if (!env.isMacOS()) {
+        const overlay = (window.navigator as any).windowControlsOverlay;
+        const titlebarRect: DOMRect | null = overlay?.visible ? overlay.getTitlebarAreaRect() : null;
+        if (titlebarRect) {
+            windowDragRightWidth = Math.max(12, window.innerWidth - titlebarRect.right);
+        }
     }
 
     return (
