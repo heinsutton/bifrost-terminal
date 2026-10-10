@@ -8,18 +8,21 @@ import { cn } from "@/shadcn/lib/utils";
 import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
-import { ClaudeSessionsViewModel } from "./claudesessions-model";
+import { ClaudeSessionsViewModel, PromptsEntry } from "./claudesessions-model";
 import { displayName, formatAge, Row, SessionRow, SessionState, sessionState, shortenPath } from "./claudesessions-nav";
 
 const RowHeight = 22;
 const RuleFill = "─".repeat(300);
 
-const StateGlyph: Record<SessionState, { glyph: string; className: string; label: string }> = {
-    busy: { glyph: "●", className: "text-success", label: "busy" },
-    idle: { glyph: "○", className: "text-accent", label: "idle" },
-    waiting: { glyph: "◆", className: "text-attention", label: "waiting for input" },
-    external: { glyph: "◌", className: "text-warning", label: "running outside Bifrost" },
-    offline: { glyph: "·", className: "text-muted", label: "offline" },
+type StateStyle = { glyph: string; className: string; label: string; word: string; pulse?: boolean };
+
+// `word` is the short label shown in every row.
+const StateGlyph: Record<SessionState, StateStyle> = {
+    busy: { glyph: "●", className: "text-success", label: "busy", word: "busy", pulse: true },
+    idle: { glyph: "○", className: "text-accent", label: "idle", word: "idle" },
+    waiting: { glyph: "◆", className: "text-attention", label: "waiting for input", word: "waiting", pulse: true },
+    external: { glyph: "◌", className: "text-warning", label: "running outside Bifrost", word: "outside" },
+    offline: { glyph: "·", className: "text-muted", label: "offline", word: "offline" },
 };
 
 const HelpKeys: [string, string][] = [
@@ -29,6 +32,8 @@ const HelpKeys: [string, string][] = [
     ["Home End  g G", "first / last"],
     ["Enter  Space", "folder: open / close · session: resume it"],
     ["n", "new session in the selected folder"],
+    ["e", "edit the description of the selected session"],
+    ["p", "open / close the recent prompts box"],
     ["a", "add (remember) a folder"],
     ["x", "forget a remembered folder"],
     ["/", "filter (Esc clears)"],
@@ -153,6 +158,7 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
                         enabled: row.cwd !== "",
                         click: () => model.newSessionIn(row.cwd),
                     },
+                    { label: "Edit description…", click: () => model.openEdit(s) },
                     { type: "separator" },
                     { label: "Copy session ID", click: () => navigator.clipboard.writeText(s.sessionid) },
                     { label: "Copy folder", click: () => navigator.clipboard.writeText(row.cwd) },
@@ -161,7 +167,14 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
             }}
         >
             <span className="text-border w-[1.5ch] shrink-0 text-center select-none">{last ? "└" : "├"}</span>
-            <span className={cn("w-[1.5ch] shrink-0 text-center", st.className)} title={st.label}>
+            <span
+                className={cn(
+                    "w-[1.5ch] shrink-0 text-center",
+                    st.className,
+                    st.pulse && "animate-pulse motion-reduce:animate-none"
+                )}
+                title={st.label}
+            >
                 {st.glyph}
             </span>
             <span
@@ -175,38 +188,125 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
             >
                 {displayName(s)}
             </span>
+            <span className={cn("w-[7ch] shrink-0 truncate", st.className, st.pulse && "font-bold")} title={st.label}>
+                {st.word}
+            </span>
             <span className="w-[4ch] shrink-0 text-right text-muted-foreground">{formatAge(s.lastactive, now)}</span>
             {description ? (
-                <span className="min-w-0 flex-1 truncate text-foreground">{description}</span>
+                <span
+                    className="flex min-w-0 flex-1 items-center gap-1.5"
+                    title="your description — double-click to edit"
+                    onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        model.openEdit(s);
+                    }}
+                >
+                    <span className="shrink-0 text-accent select-none">▌</span>
+                    <span className="truncate font-bold text-accenthover">{description}</span>
+                </span>
             ) : (
-                <span className="min-w-0 flex-1 truncate text-muted">{s.preview}</span>
+                <span
+                    className="flex min-w-0 flex-1 items-center gap-1.5"
+                    title="last prompt (press e to write a description instead)"
+                >
+                    <span className="shrink-0 text-muted select-none">›</span>
+                    <span className="truncate italic text-muted">{s.preview}</span>
+                </span>
             )}
         </div>
     );
 });
 SessionLine.displayName = "SessionLine";
 
-const DetailStrip = React.memo(({ row, home }: { row: Row; home: string }) => {
-    if (row == null) {
-        return <div className="px-2 h-[22px]" />;
-    }
-    if (row.kind === "group") {
-        return (
-            <div className="px-2 text-muted-foreground truncate" style={{ height: RowHeight }}>
-                {row.cwd === "" ? "(unknown folder)" : row.cwd}
-            </div>
-        );
-    }
-    const s = row.session;
+type DetailProps = {
+    row: Row;
+    home: string;
+    now: number;
+    description: string;
+    prompts: PromptsEntry;
+    expanded: boolean;
+    onTogglePrompts: () => void;
+};
+
+// Id line, description and the prompts toggle are always there; the prompts box adds PromptRows. The
+// height depends only on whether the box is open, never on the selection.
+const PromptRows = 5;
+const ClosedRows = 3;
+
+const DetailPanel = React.memo(({ row, home, now, description, prompts, expanded, onTogglePrompts }: DetailProps) => {
+    const session = row?.kind === "session" ? row.session : null;
     return (
-        <div className="px-2 text-muted-foreground truncate" style={{ height: RowHeight }}>
-            <span className="text-accent">{s.sessionid}</span>
-            {s.version ? <span> · v{s.version}</span> : null}
-            <span> · {shortenPath(row.cwd, home)}</span>
+        <div
+            className="min-h-0 shrink overflow-hidden"
+            style={{ height: (expanded ? ClosedRows + PromptRows : ClosedRows) * RowHeight }}
+        >
+            <div className="px-2 text-muted-foreground truncate" style={{ height: RowHeight }}>
+                {session != null ? (
+                    <>
+                        <span className="text-accent">{session.sessionid}</span>
+                        {session.version ? <span> · v{session.version}</span> : null}
+                        <span> · {shortenPath(row.cwd, home)}</span>
+                    </>
+                ) : row != null ? (
+                    <span>{row.cwd === "" ? "(unknown folder)" : row.cwd}</span>
+                ) : null}
+            </div>
+            {session != null ? (
+                <>
+                    <div
+                        className={cn(
+                            "flex items-center gap-2 px-2 border-l-2 whitespace-nowrap",
+                            description ? "border-accent bg-accent/10" : "border-border bg-accent/5"
+                        )}
+                        style={{ height: RowHeight }}
+                    >
+                        <span className="shrink-0 text-accent text-[11px] tracking-widest select-none">▌NOTE</span>
+                        {description ? (
+                            <span className="min-w-0 flex-1 truncate font-bold text-accenthover" title={description}>
+                                {description}
+                            </span>
+                        ) : (
+                            <span className="min-w-0 flex-1 truncate italic text-muted">
+                                nothing written yet — press e to describe this session
+                            </span>
+                        )}
+                    </div>
+                    <div
+                        className="flex items-center gap-2 px-2 cursor-pointer whitespace-nowrap hover:bg-hover"
+                        style={{ height: RowHeight }}
+                        onClick={onTogglePrompts}
+                        title="open / close (p)"
+                    >
+                        <span className="text-accent w-[1.5ch] shrink-0 text-center">{expanded ? "▾" : "▸"}</span>
+                        {prompts?.error && expanded ? (
+                            <span className="min-w-0 flex-1 truncate text-error">{prompts.error}</span>
+                        ) : (
+                            <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                                recent prompts
+                                {expanded && prompts == null ? " …" : ""}
+                                {expanded && prompts != null && prompts.prompts.length === 0 ? " — none recorded" : ""}
+                                {!expanded ? " (p to open)" : ""}
+                            </span>
+                        )}
+                    </div>
+                    {expanded
+                        ? (prompts?.prompts ?? []).slice(0, PromptRows).map((p, i) => (
+                              <div key={i} className="flex gap-2 px-2 whitespace-nowrap" style={{ height: RowHeight }}>
+                                  <span className="w-[4ch] shrink-0 text-right text-muted-foreground">
+                                      {formatAge(p.ts, now)}
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate text-muted-foreground" title={p.text}>
+                                      {p.text}
+                                  </span>
+                              </div>
+                          ))
+                        : null}
+                </>
+            ) : null}
         </div>
     );
 });
-DetailStrip.displayName = "DetailStrip";
+DetailPanel.displayName = "DetailPanel";
 
 export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewModel>> = React.memo(
     function ClaudeSessionsView({ model }) {
@@ -221,6 +321,10 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
         const addOpen = jotai.useAtomValue(model.addOpenAtom);
         const addValue = jotai.useAtomValue(model.addValueAtom);
         const message = jotai.useAtomValue(model.messageAtom);
+        const edit = jotai.useAtomValue(model.editAtom);
+        const editValue = jotai.useAtomValue(model.editValueAtom);
+        const prompts = jotai.useAtomValue(model.promptsAtom);
+        const promptsOpen = jotai.useAtomValue(model.promptsOpenAtom);
         const listRef = React.useRef<HTMLDivElement>(null);
         const home = React.useMemo(getHome, []);
         const [now, setNow] = React.useState(() => Date.now());
@@ -266,12 +370,23 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
         const folderCount = new Set(sessions.map((s) => s.cwd ?? "")).size;
         const selectedRow = rows.find((r) => r.key === effectiveKey) ?? null;
         const descriptions = data?.descriptions ?? {};
+        const selectedSession = selectedRow?.kind === "session" ? selectedRow.session : null;
+        const selectedSessionId = selectedSession?.sessionid;
+        const selectedLastActive = selectedSession?.lastactive;
+        React.useEffect(() => {
+            if (selectedSession == null || !promptsOpen) {
+                return;
+            }
+            // Wait out fast arrow-key scrolling so only the row the user stops on is fetched.
+            const timer = setTimeout(() => fireAndForget(() => model.loadPrompts(selectedSession)), 150);
+            return () => clearTimeout(timer);
+        }, [selectedSessionId, selectedLastActive, promptsOpen]);
 
         return (
             <div
                 ref={model.containerRef}
                 tabIndex={0}
-                className="relative flex flex-col w-full h-full min-h-0 font-mono text-[13px] leading-none bg-background text-foreground outline-none select-none"
+                className="absolute inset-0 flex flex-col min-h-0 font-mono text-[13px] leading-none bg-background text-foreground outline-none select-none"
             >
                 <div
                     className="flex items-center gap-3 px-2 border-b border-border text-muted-foreground whitespace-nowrap"
@@ -320,6 +435,34 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                         />
                     </div>
                 ) : null}
+                {edit != null ? (
+                    <div
+                        className="flex items-center gap-2 px-2 border-b border-border"
+                        style={{ height: RowHeight + 4 }}
+                    >
+                        <span className="text-accent shrink-0 max-w-[40%] truncate">describe {edit.name}</span>
+                        <input
+                            ref={model.editInputRef}
+                            value={editValue}
+                            onChange={(e) => globalStore.set(model.editValueAtom, e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    model.closeEdit();
+                                } else if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    fireAndForget(() => model.submitEdit());
+                                }
+                            }}
+                            maxLength={500}
+                            placeholder="what is this session doing? — Enter saves (empty clears), Esc cancels"
+                            className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted select-text"
+                            spellCheck={false}
+                        />
+                    </div>
+                ) : null}
                 {addOpen ? (
                     <div
                         className="flex items-center gap-2 px-2 border-b border-border"
@@ -348,7 +491,7 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                     </div>
                 ) : null}
                 {error ? <div className="px-2 py-1 text-error truncate">{error}</div> : null}
-                <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                <div ref={listRef} className="flex-1 min-h-[66px] overflow-y-auto overflow-x-hidden">
                     {data == null && !error ? <div className="px-2 py-2 text-muted-foreground">loading…</div> : null}
                     {data != null && rows.length === 0 ? (
                         <div className="px-2 py-2 text-muted-foreground">
@@ -386,11 +529,21 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                         );
                     })}
                 </div>
-                <div className="border-t border-border">
-                    <DetailStrip row={selectedRow} home={home} />
+                <div className="flex flex-col shrink-0 max-h-[55%] border-t border-border">
+                    <DetailPanel
+                        row={selectedRow}
+                        home={home}
+                        now={now}
+                        description={
+                            selectedRow?.kind === "session" ? (descriptions[selectedRow.session.sessionid] ?? "") : ""
+                        }
+                        prompts={selectedRow?.kind === "session" ? prompts[selectedRow.session.sessionid] : null}
+                        expanded={promptsOpen}
+                        onTogglePrompts={() => model.togglePrompts()}
+                    />
                     <div
                         className={cn(
-                            "px-2 whitespace-nowrap overflow-hidden truncate",
+                            "px-2 shrink-0 whitespace-nowrap overflow-hidden truncate",
                             message == null ? "text-muted" : message.isError ? "text-error" : "text-success"
                         )}
                         style={{ height: RowHeight }}
@@ -398,7 +551,7 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                     >
                         {message != null
                             ? message.text
-                            : "↑↓ move · Enter resume · n new · a add folder · / filter · ? help"}
+                            : "↑↓ move · Enter resume · n new · e describe · a add folder · / filter · ? help"}
                     </div>
                 </div>
                 {helpOpen ? (

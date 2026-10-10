@@ -102,6 +102,8 @@ type WshRpcInterface interface {
 	ClaudeSessionsPrepareCommand(ctx context.Context, data CommandClaudeSessionsPrepareData) (*claudesessions.ClaudeLaunch, error)
 	ClaudeSessionsAddFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) (string, error)
 	ClaudeSessionsRemoveFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) error
+	ClaudeSessionsSetDescriptionCommand(ctx context.Context, data CommandClaudeSessionsDescriptionData) error
+	ClaudeSessionsPromptsCommand(ctx context.Context, data CommandClaudeSessionsPromptsData) ([]claudesessions.ClaudePrompt, error)
 
 	// connection functions
 	ConnStatusCommand(ctx context.Context) ([]ConnStatus, error)
@@ -853,6 +855,16 @@ type WaveFileInfo struct {
 type CommandClaudeSessionsPrepareData struct {
 	SessionId string `json:"sessionid,omitempty"`
 	Cwd       string `json:"cwd,omitempty"`
+}
+
+type CommandClaudeSessionsDescriptionData struct {
+	SessionId   string `json:"sessionid"`
+	Description string `json:"description"`
+}
+
+type CommandClaudeSessionsPromptsData struct {
+	SessionId string `json:"sessionid"`
+	Limit     int    `json:"limit,omitempty"`
 }
 
 type CommandClaudeSessionsFolderData struct {

@@ -231,6 +231,12 @@ declare global {
         ts: number;
     };
 
+    // claudesessions.ClaudePrompt
+    type ClaudePrompt = {
+        ts: number;
+        text: string;
+    };
+
     // claudesessions.ClaudeSession
     type ClaudeSession = {
         harness: string;
@@ -316,6 +322,12 @@ declare global {
         errorstring?: string;
     };
 
+    // wshrpc.CommandClaudeSessionsDescriptionData
+    type CommandClaudeSessionsDescriptionData = {
+        sessionid: string;
+        description: string;
+    };
+
     // wshrpc.CommandClaudeSessionsFolderData
     type CommandClaudeSessionsFolderData = {
         path: string;
@@ -326,6 +338,12 @@ declare global {
     type CommandClaudeSessionsPrepareData = {
         sessionid?: string;
         cwd?: string;
+    };
+
+    // wshrpc.CommandClaudeSessionsPromptsData
+    type CommandClaudeSessionsPromptsData = {
+        sessionid: string;
+        limit?: number;
     };
 
     // wshrpc.CommandConnServerInitData

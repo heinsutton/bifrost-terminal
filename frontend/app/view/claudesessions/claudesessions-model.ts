@@ -26,6 +26,8 @@ type ClaudeSessionsEnv = WaveEnvSubset<{
         ClaudeSessionsPrepareCommand: WaveEnv["rpc"]["ClaudeSessionsPrepareCommand"];
         ClaudeSessionsAddFolderCommand: WaveEnv["rpc"]["ClaudeSessionsAddFolderCommand"];
         ClaudeSessionsRemoveFolderCommand: WaveEnv["rpc"]["ClaudeSessionsRemoveFolderCommand"];
+        ClaudeSessionsSetDescriptionCommand: WaveEnv["rpc"]["ClaudeSessionsSetDescriptionCommand"];
+        ClaudeSessionsPromptsCommand: WaveEnv["rpc"]["ClaudeSessionsPromptsCommand"];
     };
 }>;
 
@@ -33,7 +35,30 @@ const PollIntervalMs = 3000;
 const DefaultPageSize = 10;
 const MessageMs = 5000;
 
+const ShowOfflineStorageKey = "claudesessions:showoffline";
+const PromptLimit = 5;
+
 export type StatusMessage = { text: string; isError: boolean };
+
+export type DescriptionEdit = { sessionId: string; name: string };
+
+export type PromptsEntry = { prompts: ClaudePrompt[]; lastactive: number; error?: string };
+
+function loadShowOffline(): boolean {
+    try {
+        return localStorage.getItem(ShowOfflineStorageKey) !== "false";
+    } catch (_) {
+        return true;
+    }
+}
+
+function saveShowOffline(show: boolean) {
+    try {
+        localStorage.setItem(ShowOfflineStorageKey, String(show));
+    } catch (_) {
+        // storage can be unavailable; the toggle then just resets next time
+    }
+}
 
 function isPlain(e: WaveKeyboardEvent, key: string): boolean {
     return e.key === key && !e.control && !e.alt && !e.cmd && !e.meta && !e.option;
@@ -54,7 +79,11 @@ export class ClaudeSessionsViewModel implements ViewModel {
     collapsedAtom = jotai.atom<Set<string>>(new Set<string>());
     filterAtom = jotai.atom<string>("");
     filterOpenAtom = jotai.atom<boolean>(false);
-    showOfflineAtom = jotai.atom<boolean>(true);
+    showOfflineAtom = jotai.atom<boolean>(loadShowOffline());
+    promptsOpenAtom = jotai.atom<boolean>(false);
+    editAtom = jotai.atom<DescriptionEdit>(null) as jotai.PrimitiveAtom<DescriptionEdit>;
+    editValueAtom = jotai.atom<string>("");
+    promptsAtom = jotai.atom<{ [sessionId: string]: PromptsEntry }>({});
     helpOpenAtom = jotai.atom<boolean>(false);
     addOpenAtom = jotai.atom<boolean>(false);
     addValueAtom = jotai.atom<string>("");
@@ -64,6 +93,7 @@ export class ClaudeSessionsViewModel implements ViewModel {
     containerRef = React.createRef<HTMLDivElement>();
     filterInputRef = React.createRef<HTMLInputElement>();
     addInputRef = React.createRef<HTMLInputElement>();
+    editInputRef = React.createRef<HTMLInputElement>();
     messageTimer: ReturnType<typeof setTimeout> | null = null;
     pageSize = DefaultPageSize;
     disposed = false;
@@ -190,6 +220,70 @@ export class ClaudeSessionsViewModel implements ViewModel {
         }
     }
 
+    openEdit(s: ClaudeSession) {
+        const current = globalStore.get(this.dataAtom)?.descriptions?.[s.sessionid] ?? "";
+        globalStore.set(this.editValueAtom, current);
+        globalStore.set(this.editAtom, { sessionId: s.sessionid, name: s.name || s.sessionid });
+        setTimeout(() => this.editInputRef.current?.focus(), 0);
+    }
+
+    closeEdit() {
+        globalStore.set(this.editAtom, null);
+        this.giveFocus();
+    }
+
+    async submitEdit() {
+        const edit = globalStore.get(this.editAtom);
+        if (edit == null) {
+            return;
+        }
+        try {
+            await this.env.rpc.ClaudeSessionsSetDescriptionCommand(TabRpcClient, {
+                sessionid: edit.sessionId,
+                description: globalStore.get(this.editValueAtom),
+            });
+            this.closeEdit();
+            await this.refresh();
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
+    }
+
+    editSelected() {
+        const row = this.selectedRow();
+        if (row?.kind === "session") {
+            this.openEdit(row.session);
+        } else {
+            this.showMessage("Select a session to describe", true);
+        }
+    }
+
+    // Prompts come from a small history file, so one fetch per selection is cheap; a session with new
+    // activity is fetched again.
+    async loadPrompts(s: ClaudeSession) {
+        const cached = globalStore.get(this.promptsAtom)[s.sessionid];
+        if (cached != null && cached.lastactive === s.lastactive) {
+            return;
+        }
+        let entry: PromptsEntry;
+        try {
+            const prompts = await this.env.rpc.ClaudeSessionsPromptsCommand(TabRpcClient, {
+                sessionid: s.sessionid,
+                limit: PromptLimit,
+            });
+            entry = { prompts: prompts ?? [], lastactive: s.lastactive };
+        } catch (e) {
+            entry = { prompts: [], lastactive: s.lastactive, error: String(e) };
+        }
+        if (!this.disposed) {
+            globalStore.set(this.promptsAtom, { ...globalStore.get(this.promptsAtom), [s.sessionid]: entry });
+        }
+    }
+
+    togglePrompts() {
+        globalStore.set(this.promptsOpenAtom, !globalStore.get(this.promptsOpenAtom));
+    }
+
     async poll() {
         if (this.disposed) {
             return;
@@ -211,6 +305,10 @@ export class ClaudeSessionsViewModel implements ViewModel {
     }
 
     giveFocus(): boolean {
+        if (globalStore.get(this.editAtom) != null && this.editInputRef.current != null) {
+            this.editInputRef.current.focus();
+            return true;
+        }
         if (globalStore.get(this.addOpenAtom) && this.addInputRef.current != null) {
             this.addInputRef.current.focus();
             return true;
@@ -316,7 +414,9 @@ export class ClaudeSessionsViewModel implements ViewModel {
     }
 
     toggleOffline() {
-        globalStore.set(this.showOfflineAtom, !globalStore.get(this.showOfflineAtom));
+        const next = !globalStore.get(this.showOfflineAtom);
+        globalStore.set(this.showOfflineAtom, next);
+        saveShowOffline(next);
     }
 
     toggleHelp() {
@@ -387,6 +487,14 @@ export class ClaudeSessionsViewModel implements ViewModel {
         }
         if (isPlain(e, "n")) {
             this.newInSelected();
+            return true;
+        }
+        if (isPlain(e, "e")) {
+            this.editSelected();
+            return true;
+        }
+        if (isPlain(e, "p")) {
+            this.togglePrompts();
             return true;
         }
         if (isPlain(e, "a")) {

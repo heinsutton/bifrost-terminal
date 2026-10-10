@@ -120,10 +120,22 @@ export class RpcApiType {
         return client.wshRpcCall("claudesessionsprepare", data, opts);
     }
 
+    // command "claudesessionsprompts" [call]
+    ClaudeSessionsPromptsCommand(client: WshClient, data: CommandClaudeSessionsPromptsData, opts?: RpcOpts): Promise<ClaudePrompt[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionsprompts", data, opts);
+        return client.wshRpcCall("claudesessionsprompts", data, opts);
+    }
+
     // command "claudesessionsremovefolder" [call]
     ClaudeSessionsRemoveFolderCommand(client: WshClient, data: CommandClaudeSessionsFolderData, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionsremovefolder", data, opts);
         return client.wshRpcCall("claudesessionsremovefolder", data, opts);
+    }
+
+    // command "claudesessionssetdescription" [call]
+    ClaudeSessionsSetDescriptionCommand(client: WshClient, data: CommandClaudeSessionsDescriptionData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionssetdescription", data, opts);
+        return client.wshRpcCall("claudesessionssetdescription", data, opts);
     }
 
     // command "connconnect" [call]

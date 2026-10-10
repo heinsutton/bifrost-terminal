@@ -50,3 +50,9 @@ type ClaudeLaunch struct {
 	Args []string `json:"args"`
 	Cwd  string   `json:"cwd"`
 }
+
+// ClaudePrompt is one prompt the user typed in a session, newest first in lists.
+type ClaudePrompt struct {
+	Ts   int64  `json:"ts"` // unix ms
+	Text string `json:"text"`
+}

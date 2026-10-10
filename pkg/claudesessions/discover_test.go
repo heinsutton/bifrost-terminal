@@ -335,3 +335,58 @@ func TestListMissing(t *testing.T) {
 		t.Errorf("missing folders not reported: %v", res.Missing)
 	}
 }
+
+func TestRecentPrompts(t *testing.T) {
+	dir := t.TempDir()
+	line := func(text string, ts int, id string) string {
+		return fmt.Sprintf(`{"display":%q,"timestamp":%d,"project":"/a","sessionId":%q}`, text, ts, id) + "\n"
+	}
+	write(t, filepath.Join(dir, "history.jsonl"),
+		line("first", 1, idNamed)+line("/exit", 2, idNamed)+line("other session", 3, idLive)+
+			line("third\nwith newline", 5, idNamed)+"garbage\n"+line("second", 4, idNamed)+line("   ", 6, idNamed))
+	p := MakeProvider(dir)
+	got, err := p.RecentPrompts(idNamed, 2)
+	if err != nil || len(got) != 2 || got[0].Text != "third with newline" || got[1].Text != "second" {
+		t.Errorf("newest first, noise dropped, limited: %+v %v", got, err)
+	}
+	if got, _ := p.RecentPrompts(idNamed, 10); len(got) != 3 {
+		t.Errorf("want 3 real prompts, got %+v", got)
+	}
+	if _, err := p.RecentPrompts("nope", 5); err == nil {
+		t.Errorf("non-uuid id must be refused")
+	}
+	if got, err := MakeProvider(t.TempDir()).RecentPrompts(idNamed, 5); err != nil || len(got) != 0 {
+		t.Errorf("missing history must give none: %+v %v", got, err)
+	}
+}
+
+func TestSetDescription(t *testing.T) {
+	cfg := t.TempDir()
+	if err := SetDescription(cfg, idNamed, "  working on\nthe parser  "); err != nil {
+		t.Fatal(err)
+	}
+	if d := loadStore(cfg).Descriptions[idNamed]; d != "working on the parser" {
+		t.Errorf("description not cleaned: %q", d)
+	}
+	a := t.TempDir()
+	if _, err := AddFolder(cfg, a, ""); err != nil {
+		t.Fatal(err)
+	}
+	if sd := loadStore(cfg); len(sd.Folders) != 1 || sd.Descriptions[idNamed] == "" {
+		t.Errorf("folders and descriptions must coexist: %+v", sd)
+	}
+	if err := SetDescription(cfg, idNamed, "   "); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := loadStore(cfg).Descriptions[idNamed]; ok {
+		t.Errorf("empty description must remove it")
+	}
+	if err := SetDescription(cfg, "../x", "hi"); err == nil {
+		t.Errorf("non-uuid id must be refused")
+	}
+	long := strings.Repeat("x", 900)
+	_ = SetDescription(cfg, idNamed, long)
+	if d := loadStore(cfg).Descriptions[idNamed]; len([]rune(d)) > maxDescriptionLen+1 {
+		t.Errorf("description too long: %d", len([]rune(d)))
+	}
+}

@@ -1515,6 +1515,14 @@ func (ws *WshServer) ClaudeSessionsAddFolderCommand(ctx context.Context, data ws
 	return claudesessions.AddFolder(wavebase.GetWaveConfigDir(), path, strings.TrimSpace(data.Label))
 }
 
+func (ws *WshServer) ClaudeSessionsSetDescriptionCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsDescriptionData) error {
+	return claudesessions.SetDescription(wavebase.GetWaveConfigDir(), data.SessionId, data.Description)
+}
+
+func (ws *WshServer) ClaudeSessionsPromptsCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsPromptsData) ([]claudesessions.ClaudePrompt, error) {
+	return getClaudeSessionsProvider().RecentPrompts(data.SessionId, data.Limit)
+}
+
 func (ws *WshServer) ClaudeSessionsRemoveFolderCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsFolderData) error {
 	return claudesessions.RemoveFolder(wavebase.GetWaveConfigDir(), data.Path)
 }

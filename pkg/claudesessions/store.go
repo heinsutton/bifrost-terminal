@@ -132,6 +132,25 @@ func RemoveFolder(configDir string, path string) error {
 	return saveStore(configDir, sd)
 }
 
+const maxDescriptionLen = 500
+
+// SetDescription stores the user's own description of a session; an empty one removes it.
+func SetDescription(configDir string, sessionId string, description string) error {
+	if !IsSessionId(sessionId) {
+		return fmt.Errorf("not a session id: %q", sessionId)
+	}
+	description = cleanText(description, maxDescriptionLen)
+	storeLock.Lock()
+	defer storeLock.Unlock()
+	sd := loadStore(configDir)
+	if description == "" {
+		delete(sd.Descriptions, sessionId)
+	} else {
+		sd.Descriptions[sessionId] = description
+	}
+	return saveStore(configDir, sd)
+}
+
 // List returns every session plus the user's folders and descriptions.
 func List(p *Provider, configDir string) *ClaudeListResult {
 	sd := loadStore(configDir)

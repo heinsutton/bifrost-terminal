@@ -120,9 +120,21 @@ func ClaudeSessionsPrepareCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSe
 	return resp, err
 }
 
+// command "claudesessionsprompts", wshserver.ClaudeSessionsPromptsCommand
+func ClaudeSessionsPromptsCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsPromptsData, opts *wshrpc.RpcOpts) ([]claudesessions.ClaudePrompt, error) {
+	resp, err := sendRpcRequestCallHelper[[]claudesessions.ClaudePrompt](w, "claudesessionsprompts", data, opts)
+	return resp, err
+}
+
 // command "claudesessionsremovefolder", wshserver.ClaudeSessionsRemoveFolderCommand
 func ClaudeSessionsRemoveFolderCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsFolderData, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "claudesessionsremovefolder", data, opts)
+	return err
+}
+
+// command "claudesessionssetdescription", wshserver.ClaudeSessionsSetDescriptionCommand
+func ClaudeSessionsSetDescriptionCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsDescriptionData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "claudesessionssetdescription", data, opts)
 	return err
 }
 
