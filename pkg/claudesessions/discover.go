@@ -24,14 +24,15 @@ func IsSessionId(s string) bool {
 }
 
 type registryEntry struct {
-	Pid       int    `json:"pid"`
-	SessionId string `json:"sessionId"`
-	Cwd       string `json:"cwd"`
-	Kind      string `json:"kind"`
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Version   string `json:"version"`
-	UpdatedAt int64  `json:"updatedAt"`
+	Pid             int    `json:"pid"`
+	SessionId       string `json:"sessionId"`
+	Cwd             string `json:"cwd"`
+	Kind            string `json:"kind"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	Version         string `json:"version"`
+	UpdatedAt       int64  `json:"updatedAt"`
+	StatusUpdatedAt int64  `json:"statusUpdatedAt"`
 }
 
 type historyEntry struct {
@@ -55,17 +56,38 @@ type cacheEntry struct {
 type Provider struct {
 	claudeDir string
 	pidAlive  func(pid int) bool
+	blockOf   func(pid int) string
 	lock      sync.Mutex
 	cache     map[string]cacheEntry
 }
 
 func MakeProvider(claudeDir string) *Provider {
-	return &Provider{claudeDir: claudeDir, pidAlive: pidAlive, cache: make(map[string]cacheEntry)}
+	return &Provider{claudeDir: claudeDir, pidAlive: pidAlive, blockOf: blockOfPid, cache: make(map[string]cacheEntry)}
 }
 
 func pidAlive(pid int) bool {
 	ok, err := process.PidExists(int32(pid))
 	return err == nil && ok
+}
+
+// blockOfPid returns the Bifrost block the process was started in: panes put WAVETERM_BLOCKID in
+// the environment, and Claude inherits it from the shell. Empty when it cannot be read or the
+// process was started elsewhere (another terminal).
+func blockOfPid(pid int) string {
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return ""
+	}
+	env, err := proc.Environ()
+	if err != nil {
+		return ""
+	}
+	for _, kv := range env {
+		if v, ok := strings.CutPrefix(kv, "WAVETERM_BLOCKID="); ok {
+			return v
+		}
+	}
+	return ""
 }
 
 func (p *Provider) readRegistry() map[string]registryEntry {
@@ -170,7 +192,12 @@ func (p *Provider) Discover() []ClaudeSession {
 			}
 			path := filepath.Join(projectsDir, d.Name(), fe.Name())
 			info := p.transcript(path, fi.ModTime().UnixMilli(), fi.Size())
-			s := ClaudeSession{Harness: HarnessClaude, SessionId: id, Name: info.Name, Cwd: info.Cwd, Preview: info.Preview, LastActive: fi.ModTime().UnixMilli()}
+			// File mtime also moves when a session is renamed, so the last real message wins.
+			lastActive := info.LastTs
+			if lastActive == 0 {
+				lastActive = fi.ModTime().UnixMilli()
+			}
+			s := ClaudeSession{Harness: HarnessClaude, SessionId: id, Name: info.Name, Cwd: info.Cwd, Preview: info.Preview, LastActive: lastActive}
 			if he, ok := history[id]; ok {
 				if s.Cwd == "" {
 					s.Cwd = he.Project
@@ -194,11 +221,19 @@ func (p *Provider) Discover() []ClaudeSession {
 		}
 	}
 	for i := range sessions {
+		sessions[i].State = StateOffline
 		if re, ok := registry[sessions[i].SessionId]; ok {
 			s := &sessions[i]
 			s.Pid = re.Pid
 			s.Status = re.Status
+			s.StatusTs = re.StatusUpdatedAt
+			s.BlockId = p.blockOf(re.Pid)
+			s.External = s.BlockId == ""
 			s.Version = re.Version
+			s.State = StateIdle
+			if re.Status == StateBusy {
+				s.State = StateBusy
+			}
 			if re.Name != "" {
 				s.Name = cleanText(re.Name, maxNameLen)
 			}

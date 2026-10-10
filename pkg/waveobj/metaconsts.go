@@ -62,6 +62,10 @@ const (
 	MetaKey_CmdInitScriptPwsh                = "cmd:initscript.pwsh"
 	MetaKey_CmdInitScriptFish                = "cmd:initscript.fish"
 
+	MetaKey_ClaudeSession                    = "claude:session"
+	MetaKey_ClaudeState                      = "claude:state"
+	MetaKey_ClaudeStateTs                    = "claude:statets"
+
 	MetaKey_AiClear                          = "ai:*"
 	MetaKey_AiPresetKey                      = "ai:preset"
 	MetaKey_AiApiType                        = "ai:apitype"

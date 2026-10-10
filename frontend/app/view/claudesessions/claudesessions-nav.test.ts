@@ -11,16 +11,17 @@ import {
     groupKey,
     moveSelection,
     sessionKey,
+    sessionState,
     shortenPath,
 } from "./claudesessions-nav";
 
 function mk(id: string, cwd: string, lastactive: number, extra: Partial<ClaudeSession> = {}): ClaudeSession {
-    return { harness: "claude", sessionid: id, cwd, lastactive, ...extra };
+    return { harness: "claude", sessionid: id, cwd, lastactive, state: "offline", ...extra };
 }
 
 const sessions: ClaudeSession[] = [
     mk("a", "/p/one", 100, { name: "alpha" }),
-    mk("b", "/p/one", 300, { pid: 5, status: "busy" }),
+    mk("b", "/p/one", 300, { pid: 5, state: "busy" }),
     mk("c", "/p/two", 200, { name: "gamma", preview: "fix the parser" }),
     mk("d", "/p/two", 50),
 ];
@@ -77,6 +78,28 @@ describe("buildRows", () => {
 
     it("copes with no sessions", () => {
         expect(buildRows(null, opts)).toEqual([]);
+    });
+});
+
+describe("sessionState", () => {
+    it("takes the state the backend reports, offline when it is missing or unknown", () => {
+        expect(sessionState(mk("a", "/", 1, { state: "waiting" }))).toBe("waiting");
+        expect(sessionState(mk("a", "/", 1, { state: "idle" }))).toBe("idle");
+        expect(sessionState(mk("a", "/", 1, { state: "bogus" }))).toBe("offline");
+        expect(sessionState(mk("a", "/", 1, { state: undefined }))).toBe("offline");
+    });
+
+    it("marks a live session started outside Bifrost as external, and does not count it as running", () => {
+        const ext = mk("e", "/p", 1, { state: "idle", external: true });
+        expect(sessionState(ext)).toBe("external");
+        expect(sessionState(mk("o", "/p", 1, { state: "offline", external: true }))).toBe("offline");
+        const rows = buildRows([ext, mk("w", "/p", 2, { state: "idle" })], opts);
+        expect(rows[0]).toMatchObject({ kind: "group", count: 2, running: 1 });
+    });
+
+    it("counts a waiting session as running", () => {
+        const rows = buildRows([mk("w", "/p", 1, { state: "waiting" })], opts);
+        expect(rows[0]).toMatchObject({ kind: "group", running: 1 });
     });
 });
 

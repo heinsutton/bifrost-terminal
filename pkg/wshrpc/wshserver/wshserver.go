@@ -1493,7 +1493,26 @@ func (ws *WshServer) ClaudeSessionsListCommand(ctx context.Context) (*claudesess
 	claudeSessionsProviderOnce.Do(func() {
 		claudeSessionsProvider = claudesessions.MakeProvider(filepath.Join(wavebase.GetHomeDir(), ".claude"))
 	})
-	return claudesessions.List(claudeSessionsProvider, wavebase.GetWaveConfigDir()), nil
+	result := claudesessions.List(claudeSessionsProvider, wavebase.GetWaveConfigDir())
+	blocks, err := wstore.DBGetAllObjsByType[*waveobj.Block](ctx, waveobj.OType_Block)
+	if err != nil {
+		return nil, fmt.Errorf("listing blocks: %w", err)
+	}
+	var tagged []claudesessions.BlockClaude
+	for _, block := range blocks {
+		sessionId := block.Meta.GetString(waveobj.MetaKey_ClaudeSession, "")
+		if sessionId == "" {
+			continue
+		}
+		tagged = append(tagged, claudesessions.BlockClaude{
+			BlockId:   block.OID,
+			SessionId: sessionId,
+			State:     block.Meta.GetString(waveobj.MetaKey_ClaudeState, ""),
+			Ts:        int64(block.Meta.GetFloat(waveobj.MetaKey_ClaudeStateTs, 0)),
+		})
+	}
+	claudesessions.ApplyBlockStates(result.Sessions, tagged)
+	return result, nil
 }
 
 func (ws *WshServer) GetSecretsCommand(ctx context.Context, names []string) (map[string]string, error) {

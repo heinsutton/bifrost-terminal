@@ -6,7 +6,9 @@ package claudesessions
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -57,6 +59,7 @@ func fixture(t *testing.T) *Provider {
 		fmt.Sprintf(`{"display":"from history","timestamp":5,"project":"/home/x/proj","sessionId":%q}`, idUnnamed)+"\n"+"garbage\n")
 	p := MakeProvider(dir)
 	p.pidAlive = func(pid int) bool { return pid == 100 }
+	p.blockOf = func(pid int) string { return "block-" + fmt.Sprint(pid) }
 	return p
 }
 
@@ -103,8 +106,9 @@ func TestDiscoverLiveWithoutTranscript(t *testing.T) {
 	write(t, filepath.Join(dir, "sessions", "7.json"), fmt.Sprintf(`{"pid":7,"sessionId":%q,"cwd":"/a","kind":"interactive","status":"idle"}`, idLive))
 	p := MakeProvider(dir)
 	p.pidAlive = func(int) bool { return true }
+	p.blockOf = func(int) string { return "" }
 	got := p.Discover()
-	if len(got) != 1 || got[0].Cwd != "/a" || got[0].Pid != 7 {
+	if len(got) != 1 || got[0].Cwd != "/a" || got[0].Pid != 7 || !got[0].External || got[0].BlockId != "" {
 		t.Errorf("got %+v", got)
 	}
 }
@@ -144,5 +148,89 @@ func TestListStore(t *testing.T) {
 func TestIsSessionId(t *testing.T) {
 	if !IsSessionId(idNamed) || IsSessionId("../etc") || IsSessionId(idNamed+";rm") {
 		t.Errorf("session id check wrong")
+	}
+}
+
+func TestDiscoverStates(t *testing.T) {
+	m := byId(fixture(t).Discover())
+	if m[idLive].State != StateBusy || m[idNamed].State != StateOffline {
+		t.Errorf("states: live=%q named=%q", m[idLive].State, m[idNamed].State)
+	}
+}
+
+func TestApplyBlockStates(t *testing.T) {
+	mk := func(id, state, status string, statusTs int64) ClaudeSession {
+		return ClaudeSession{SessionId: id, State: state, Status: status, StatusTs: statusTs}
+	}
+	sessions := []ClaudeSession{
+		mk("a", StateIdle, StateIdle, 100),
+		mk("b", StateOffline, "", 0),
+		mk("c", StateIdle, StateIdle, 500),
+		mk("d", StateBusy, StateBusy, 100),
+		mk("e", StateIdle, StateIdle, 100),
+	}
+	ApplyBlockStates(sessions, []BlockClaude{
+		{BlockId: "b1", SessionId: "a", State: StateWaiting, Ts: 200},
+		{BlockId: "b2", SessionId: "b", State: StateWaiting, Ts: 200},
+		{BlockId: "b3", SessionId: "c", State: StateWaiting, Ts: 200},
+		{BlockId: "b4", SessionId: "d", State: StateIdle, Ts: 200},
+		{BlockId: "old", SessionId: "e", State: StateBusy, Ts: 50},
+		{BlockId: "new", SessionId: "e", State: StateWaiting, Ts: 150},
+		{BlockId: "bad", SessionId: "x", State: "bogus", Ts: 1},
+	})
+	want := map[string][2]string{
+		"a": {StateWaiting, "b1"},
+		"b": {StateOffline, ""},
+		"c": {StateIdle, "b3"},
+		"d": {StateIdle, "b4"},
+		"e": {StateWaiting, "new"},
+	}
+	for _, s := range sessions {
+		if w := want[s.SessionId]; s.State != w[0] || s.BlockId != w[1] {
+			t.Errorf("%s: got state=%q block=%q, want %v", s.SessionId, s.State, s.BlockId, w)
+		}
+	}
+}
+
+func TestRenameDoesNotMoveLastActive(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "projects", "-a", idNamed+".jsonl")
+	write(t, path, `{"type":"user","cwd":"/a","timestamp":"2026-10-10T10:00:00.000Z"}`+"\n"+
+		`{"type":"assistant","timestamp":"2026-10-10T10:05:00.000Z"}`+"\n"+
+		`{"type":"custom-title","customTitle":"renamed"}`+"\n")
+	got := MakeProvider(dir).Discover()
+	want := time.Date(2026, 10, 10, 10, 5, 0, 0, time.UTC).UnixMilli()
+	if len(got) != 1 || got[0].LastActive != want || got[0].Name != "renamed" {
+		t.Errorf("last active should be the last message, got %+v (want %d)", got, want)
+	}
+}
+
+func TestBlockOfPidReadsChildEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a unix sleep binary")
+	}
+	child := exec.Command("sleep", "5")
+	child.Env = append(os.Environ(), "WAVETERM_BLOCKID=abc-123")
+	if err := child.Start(); err != nil {
+		t.Skipf("cannot start sleep: %v", err)
+	}
+	defer func() {
+		_ = child.Process.Kill()
+		_ = child.Wait()
+	}()
+	if got := blockOfPid(child.Process.Pid); got != "abc-123" {
+		t.Errorf("got %q", got)
+	}
+	plain := exec.Command("sleep", "5")
+	plain.Env = []string{"PATH=" + os.Getenv("PATH")}
+	if err := plain.Start(); err != nil {
+		t.Skipf("cannot start sleep: %v", err)
+	}
+	defer func() {
+		_ = plain.Process.Kill()
+		_ = plain.Wait()
+	}()
+	if got := blockOfPid(plain.Process.Pid); got != "" {
+		t.Errorf("a process outside Bifrost should have no block, got %q", got)
 	}
 }

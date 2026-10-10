@@ -5,6 +5,13 @@ package claudesessions
 
 const HarnessClaude = "claude"
 
+const (
+	StateBusy    = "busy"
+	StateIdle    = "idle"
+	StateWaiting = "waiting"
+	StateOffline = "offline"
+)
+
 // ClaudeSession is one Claude Code session found under ~/.claude, open or closed.
 type ClaudeSession struct {
 	Harness    string `json:"harness"`
@@ -15,6 +22,10 @@ type ClaudeSession struct {
 	Preview    string `json:"preview,omitempty"`
 	Pid        int    `json:"pid,omitempty"`    // only set while the process is alive
 	Status     string `json:"status,omitempty"` // registry status of a live session: busy | idle
+	StatusTs   int64  `json:"statusts,omitempty"`
+	State      string `json:"state"`              // busy | idle | waiting | offline
+	External   bool   `json:"external,omitempty"` // alive but not started in a Bifrost pane (e.g. another terminal)
+	BlockId    string `json:"blockid,omitempty"`  // the Bifrost pane running the session, when a hook tagged one
 	Version    string `json:"version,omitempty"`
 }
 

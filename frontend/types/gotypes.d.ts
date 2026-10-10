@@ -233,6 +233,10 @@ declare global {
         preview?: string;
         pid?: number;
         status?: string;
+        statusts?: number;
+        state: string;
+        external?: boolean;
+        blockid?: string;
         version?: string;
     };
 
@@ -1158,6 +1162,9 @@ declare global {
         "cmd:initscript.zsh"?: string;
         "cmd:initscript.pwsh"?: string;
         "cmd:initscript.fish"?: string;
+        "claude:session"?: string;
+        "claude:state"?: string;
+        "claude:statets"?: number;
         "ai:*"?: boolean;
         "ai:preset"?: string;
         "ai:apitype"?: string;

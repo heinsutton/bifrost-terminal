@@ -269,6 +269,24 @@ Use `--print` to preview the metadata for any background configuration without a
 
 ---
 
+## claudestate
+
+The `claudestate` command is a Claude Code hook that tags the current block with the session id and state of the Claude Code session running in it. The Claude Sessions view uses this to show busy, idle and waiting-for-input sessions.
+
+```sh
+wsh claudestate
+```
+
+It reads the hook's JSON from stdin, so it takes no arguments. Add it to the `UserPromptSubmit`, `PreToolUse` (matcher `AskUserQuestion`), `PostToolUse`, `Notification` (matchers `permission_prompt` and `elicitation_dialog`), `Stop`, `SessionStart` and `SessionEnd` hooks in `~/.claude/settings.json`:
+
+```json
+{ "type": "command", "command": "wsh claudestate 2>/dev/null || true" }
+```
+
+The state is stored in the block metadata keys `claude:session`, `claude:state` and `claude:statets`. `SessionEnd` clears them.
+
+---
+
 ## badge
 
 <VersionBadge version="v0.14.2" />

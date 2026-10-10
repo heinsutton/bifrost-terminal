@@ -63,6 +63,11 @@ type MetaTSType struct {
 	CmdInitScriptPwsh string            `json:"cmd:initscript.pwsh,omitempty"`
 	CmdInitScriptFish string            `json:"cmd:initscript.fish,omitempty"`
 
+	// set by the `wsh claudestate` Claude Code hook on the pane running the session
+	ClaudeSession string `json:"claude:session,omitempty"`
+	ClaudeState   string `json:"claude:state,omitempty"`
+	ClaudeStateTs int64  `json:"claude:statets,omitempty"`
+
 	// AI options match settings
 	AiClear      bool    `json:"ai:*,omitempty"`
 	AiPresetKey  string  `json:"ai:preset,omitempty"`

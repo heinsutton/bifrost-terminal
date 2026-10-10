@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -26,6 +27,7 @@ type transcriptInfo struct {
 	Name    string
 	Cwd     string
 	Preview string
+	LastTs  int64 // unix ms of the newest user or assistant message; renames and bookkeeping lines do not count
 }
 
 // transcriptLine holds the only fields read from a transcript line; the format is undocumented
@@ -36,6 +38,7 @@ type transcriptLine struct {
 	AgentName   string `json:"agentName"`
 	LastPrompt  string `json:"lastPrompt"`
 	Cwd         string `json:"cwd"`
+	Timestamp   string `json:"timestamp"`
 }
 
 func cleanText(s string, max int) string {
@@ -56,7 +59,8 @@ func cleanText(s string, max int) string {
 func (t *transcriptInfo) apply(line []byte) {
 	// Cheap filter: most lines are large messages that carry none of the fields we want.
 	if !bytes.Contains(line, []byte(`"cwd"`)) && !bytes.Contains(line, []byte(`"customTitle"`)) &&
-		!bytes.Contains(line, []byte(`"agentName"`)) && !bytes.Contains(line, []byte(`"lastPrompt"`)) {
+		!bytes.Contains(line, []byte(`"agentName"`)) && !bytes.Contains(line, []byte(`"lastPrompt"`)) &&
+		!bytes.Contains(line, []byte(`"timestamp"`)) {
 		return
 	}
 	var tl transcriptLine
@@ -67,6 +71,10 @@ func (t *transcriptInfo) apply(line []byte) {
 		t.Cwd = tl.Cwd
 	}
 	switch tl.Type {
+	case "user", "assistant":
+		if ts, err := time.Parse(time.RFC3339Nano, tl.Timestamp); err == nil && ts.UnixMilli() > t.LastTs {
+			t.LastTs = ts.UnixMilli()
+		}
 	case titleTypeName:
 		if tl.CustomTitle != "" {
 			t.Name = cleanText(tl.CustomTitle, maxNameLen)

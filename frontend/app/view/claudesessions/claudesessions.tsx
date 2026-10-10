@@ -8,7 +8,7 @@ import { cn } from "@/shadcn/lib/utils";
 import * as jotai from "jotai";
 import * as React from "react";
 import { ClaudeSessionsViewModel } from "./claudesessions-model";
-import { displayName, formatAge, Row, SessionRow, SessionState, shortenPath } from "./claudesessions-nav";
+import { displayName, formatAge, Row, SessionRow, SessionState, sessionState, shortenPath } from "./claudesessions-nav";
 
 const RowHeight = 22;
 const RuleFill = "─".repeat(300);
@@ -16,6 +16,8 @@ const RuleFill = "─".repeat(300);
 const StateGlyph: Record<SessionState, { glyph: string; className: string; label: string }> = {
     busy: { glyph: "●", className: "text-success", label: "busy" },
     idle: { glyph: "○", className: "text-accent", label: "idle" },
+    waiting: { glyph: "◆", className: "text-attention", label: "waiting for input" },
+    external: { glyph: "◌", className: "text-warning", label: "running outside Bifrost" },
     offline: { glyph: "·", className: "text-muted", label: "offline" },
 };
 
@@ -75,7 +77,7 @@ const GroupLine = React.memo(({ row, selected, home, model }: RowProps & { row: 
                 ContextMenuModel.getInstance().showContextMenu(menu, e);
             }}
         >
-            <span className="text-accent w-3 text-center">{row.collapsed ? "▸" : "▾"}</span>
+            <span className="text-accent w-[1.5ch] shrink-0 text-center">{row.collapsed ? "▸" : "▾"}</span>
             <span className={cn("shrink-0 max-w-[60%] truncate", selected ? "text-accenthover" : "text-accent")}>
                 {shortenPath(row.cwd, home)}
             </span>
@@ -117,14 +119,15 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
                 ContextMenuModel.getInstance().showContextMenu(menu, e);
             }}
         >
-            <span className="text-border w-3 text-center select-none">{last ? "└" : "├"}</span>
-            <span className={cn("w-3 text-center", st.className)} title={st.label}>
+            <span className="text-border w-[1.5ch] shrink-0 text-center select-none">{last ? "└" : "├"}</span>
+            <span className={cn("w-[1.5ch] shrink-0 text-center", st.className)} title={st.label}>
                 {st.glyph}
             </span>
             <span
                 className={cn(
                     "truncate",
-                    hasName ? "w-[24ch] shrink-0" : "w-[24ch] shrink-0 text-muted-foreground",
+                    "w-[min(24ch,40%)] shrink-0",
+                    !hasName && "text-muted-foreground",
                     row.state === "offline" && hasName && "text-secondary"
                 )}
                 title={s.sessionid}
@@ -133,9 +136,9 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
             </span>
             <span className="w-[4ch] shrink-0 text-right text-muted-foreground">{formatAge(s.lastactive, now)}</span>
             {description ? (
-                <span className="truncate text-foreground">{description}</span>
+                <span className="min-w-0 flex-1 truncate text-foreground">{description}</span>
             ) : (
-                <span className="truncate text-muted">{s.preview}</span>
+                <span className="min-w-0 flex-1 truncate text-muted">{s.preview}</span>
             )}
         </div>
     );
@@ -213,7 +216,9 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
         }, []);
 
         const sessions = data?.sessions ?? [];
-        const running = sessions.filter((s) => s.pid != null && s.pid > 0).length;
+        const running = sessions.filter((s) => ["busy", "idle", "waiting"].includes(sessionState(s))).length;
+        const external = sessions.filter((s) => sessionState(s) === "external").length;
+        const waiting = sessions.filter((s) => sessionState(s) === "waiting").length;
         const folderCount = new Set(sessions.map((s) => s.cwd ?? "")).size;
         const selectedRow = rows.find((r) => r.key === effectiveKey) ?? null;
         const descriptions = data?.descriptions ?? {};
@@ -230,6 +235,8 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                 >
                     <span className="text-accent">{sessions.length} sessions</span>
                     <span className={running > 0 ? "text-success" : ""}>{running} running</span>
+                    {external > 0 ? <span className="text-warning">{external} outside</span> : null}
+                    {waiting > 0 ? <span className="text-attention">{waiting} waiting</span> : null}
                     <span>{folderCount} folders</span>
                     {!showOffline ? <span className="text-attention">offline hidden</span> : null}
                     <span className="flex-1" />

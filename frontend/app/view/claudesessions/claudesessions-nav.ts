@@ -1,7 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-export type SessionState = "busy" | "idle" | "offline";
+export type SessionState = "busy" | "idle" | "waiting" | "external" | "offline";
 
 export type GroupRow = {
     kind: "group";
@@ -39,11 +39,16 @@ export function sessionKey(sessionId: string): string {
     return "s:" + sessionId;
 }
 
+// A session that is alive but was not started in a Bifrost pane is "external": it runs, but this
+// app cannot follow its state, and it must not be resumed.
 export function sessionState(s: ClaudeSession): SessionState {
-    if (s.pid == null || s.pid <= 0) {
-        return "offline";
+    if (s.external && s.state !== "offline") {
+        return "external";
     }
-    return s.status === "busy" ? "busy" : "idle";
+    if (s.state === "busy" || s.state === "idle" || s.state === "waiting" || s.state === "offline") {
+        return s.state;
+    }
+    return "offline";
 }
 
 function matchesFilter(s: ClaudeSession, filter: string, descriptions: { [key: string]: string }): boolean {
@@ -91,7 +96,7 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
             key: groupKey(g.cwd),
             cwd: g.cwd,
             count: g.rows.length,
-            running: g.rows.filter((r) => r.state !== "offline").length,
+            running: g.rows.filter((r) => r.state !== "offline" && r.state !== "external").length,
             collapsed,
         });
         if (!collapsed) {
