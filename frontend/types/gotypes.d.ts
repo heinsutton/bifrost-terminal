@@ -209,6 +209,33 @@ declare global {
         secretbindingscomplete: boolean;
     };
 
+    // claudesessions.ClaudeFolder
+    type ClaudeFolder = {
+        path: string;
+        label?: string;
+    };
+
+    // claudesessions.ClaudeListResult
+    type ClaudeListResult = {
+        sessions: ClaudeSession[];
+        folders: ClaudeFolder[];
+        descriptions: {[key: string]: string};
+        ts: number;
+    };
+
+    // claudesessions.ClaudeSession
+    type ClaudeSession = {
+        harness: string;
+        sessionid: string;
+        name?: string;
+        cwd: string;
+        lastactive: number;
+        preview?: string;
+        pid?: number;
+        status?: string;
+        version?: string;
+    };
+
     // waveobj.Client
     type Client = WaveObj & {
         windowids: string[];

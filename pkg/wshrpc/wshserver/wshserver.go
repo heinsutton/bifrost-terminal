@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/skratchdot/open-golang/open"
@@ -28,6 +29,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/blockcontroller"
 	"github.com/wavetermdev/waveterm/pkg/blocklogger"
 	"github.com/wavetermdev/waveterm/pkg/buildercontroller"
+	"github.com/wavetermdev/waveterm/pkg/claudesessions"
 	"github.com/wavetermdev/waveterm/pkg/filebackup"
 	"github.com/wavetermdev/waveterm/pkg/filestore"
 	"github.com/wavetermdev/waveterm/pkg/genconn"
@@ -66,6 +68,11 @@ type WshServer struct{}
 func (*WshServer) WshServerImpl() {}
 
 var WshServerImpl = WshServer{}
+
+var (
+	claudeSessionsProvider     *claudesessions.Provider
+	claudeSessionsProviderOnce sync.Once
+)
 
 func (ws *WshServer) GetJwtPublicKeyCommand(ctx context.Context) (string, error) {
 	return wavejwt.GetPublicKeyBase64(), nil
@@ -1480,6 +1487,13 @@ func (ws *WshServer) GetTabCommand(ctx context.Context, tabId string) (*waveobj.
 
 func (ws *WshServer) GetAllBadgesCommand(ctx context.Context) ([]baseds.BadgeEvent, error) {
 	return wcore.GetAllBadges(), nil
+}
+
+func (ws *WshServer) ClaudeSessionsListCommand(ctx context.Context) (*claudesessions.ClaudeListResult, error) {
+	claudeSessionsProviderOnce.Do(func() {
+		claudeSessionsProvider = claudesessions.MakeProvider(filepath.Join(wavebase.GetHomeDir(), ".claude"))
+	})
+	return claudesessions.List(claudeSessionsProvider, wavebase.GetWaveConfigDir()), nil
 }
 
 func (ws *WshServer) GetSecretsCommand(ctx context.Context, names []string) (map[string]string, error) {

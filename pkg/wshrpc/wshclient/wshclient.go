@@ -8,6 +8,7 @@ package wshclient
 import (
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/uctypes"
 	"github.com/wavetermdev/waveterm/pkg/baseds"
+	"github.com/wavetermdev/waveterm/pkg/claudesessions"
 	"github.com/wavetermdev/waveterm/pkg/telemetry/telemetrydata"
 	"github.com/wavetermdev/waveterm/pkg/vdom"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
@@ -98,6 +99,12 @@ func CaptureBlockScreenshotCommand(w *wshutil.WshRpc, data wshrpc.CommandCapture
 // command "checkgoversion", wshserver.CheckGoVersionCommand
 func CheckGoVersionCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.CommandCheckGoVersionRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandCheckGoVersionRtnData](w, "checkgoversion", nil, opts)
+	return resp, err
+}
+
+// command "claudesessionslist", wshserver.ClaudeSessionsListCommand
+func ClaudeSessionsListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*claudesessions.ClaudeListResult, error) {
+	resp, err := sendRpcRequestCallHelper[*claudesessions.ClaudeListResult](w, "claudesessionslist", nil, opts)
 	return resp, err
 }
 
