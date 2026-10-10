@@ -9,7 +9,16 @@ import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
 import { ClaudeSessionsViewModel, PromptsEntry } from "./claudesessions-model";
-import { displayName, formatAge, Row, SessionRow, SessionState, sessionState, shortenPath } from "./claudesessions-nav";
+import {
+    displayName,
+    formatAge,
+    isHidden,
+    Row,
+    SessionRow,
+    SessionState,
+    sessionState,
+    shortenPath,
+} from "./claudesessions-nav";
 
 const RowHeight = 22;
 const RuleFill = "─".repeat(300);
@@ -25,6 +34,15 @@ const StateGlyph: Record<SessionState, StateStyle> = {
     offline: { glyph: "·", className: "text-muted", label: "offline", word: "offline" },
 };
 
+// Which tool a session belongs to; the pane lists Claude Code only for now, others plug in here.
+const HarnessStyle: { [harness: string]: { label: string; className: string } } = {
+    claude: { label: "claude", className: "text-[#d97757]" },
+};
+
+function harnessStyle(harness: string): { label: string; className: string } {
+    return HarnessStyle[harness] ?? { label: harness || "?", className: "text-muted-foreground" };
+}
+
 const HelpKeys: [string, string][] = [
     ["↑ ↓  j k", "move"],
     ["← →  h l", "close / open folder, jump to folder"],
@@ -36,6 +54,8 @@ const HelpKeys: [string, string][] = [
     ["p", "open / close the recent prompts box"],
     ["a", "add (remember) a folder"],
     ["x", "forget a remembered folder"],
+    ["d  Delete", "remove the selected offline session from the list (files untouched)"],
+    ["H", "show / hide removed sessions (d on one puts it back)"],
     ["/", "filter (Esc clears)"],
     ["o", "show / hide offline sessions"],
     ["?", "this help"],
@@ -130,15 +150,19 @@ GroupLine.displayName = "GroupLine";
 const SessionLine = React.memo(({ row, selected, last, now, description, model }: RowProps & { row: SessionRow }) => {
     const s = row.session;
     const st = StateGlyph[row.state];
+    const harness = harnessStyle(s.harness);
+    const hidden = isHidden(s);
     const hasName = !!s.name;
     return (
         <div
             data-rowkey={row.key}
             className={cn(
                 "flex items-center gap-2 px-2 cursor-pointer border-l-2 whitespace-nowrap",
-                selected ? "bg-highlightbg border-accent" : "border-transparent hover:bg-hover"
+                selected ? "bg-highlightbg border-accent" : "border-transparent hover:bg-hover",
+                hidden && "opacity-50"
             )}
             style={{ height: RowHeight }}
+            title={hidden ? "removed from the list — press d to put it back" : undefined}
             onClick={() => {
                 model.containerRef.current?.focus({ preventScroll: true });
                 model.select(row.key);
@@ -159,6 +183,11 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
                         click: () => model.newSessionIn(row.cwd),
                     },
                     { label: "Edit description…", click: () => model.openEdit(s) },
+                    {
+                        label: hidden ? "Put back in the list" : "Remove from the list",
+                        enabled: hidden || row.state === "offline",
+                        click: () => fireAndForget(() => model.setHidden(s, !hidden)),
+                    },
                     { type: "separator" },
                     { label: "Copy session ID", click: () => navigator.clipboard.writeText(s.sessionid) },
                     { label: "Copy folder", click: () => navigator.clipboard.writeText(row.cwd) },
@@ -188,8 +217,11 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
             >
                 {displayName(s)}
             </span>
-            <span className={cn("w-[7ch] shrink-0 truncate", st.className, st.pulse && "font-bold")} title={st.label}>
+            <span className={cn("w-[10ch] shrink-0 truncate", st.className, st.pulse && "font-bold")} title={st.label}>
                 {st.word}
+            </span>
+            <span className={cn("w-[7ch] shrink-0 truncate", harness.className)} title={`${harness.label} session`}>
+                {harness.label}
             </span>
             <span className="w-[4ch] shrink-0 text-right text-muted-foreground">{formatAge(s.lastactive, now)}</span>
             {description ? (
@@ -365,6 +397,8 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
 
         const sessions = data?.sessions ?? [];
         const running = sessions.filter((s) => ["busy", "idle", "waiting"].includes(sessionState(s))).length;
+        const hiddenCount = sessions.filter(isHidden).length;
+        const showHidden = jotai.useAtomValue(model.showHiddenAtom);
         const external = sessions.filter((s) => sessionState(s) === "external").length;
         const waiting = sessions.filter((s) => sessionState(s) === "waiting").length;
         const folderCount = new Set(sessions.map((s) => s.cwd ?? "")).size;
@@ -397,6 +431,15 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                     {external > 0 ? <span className="text-warning">{external} outside</span> : null}
                     {waiting > 0 ? <span className="text-attention">{waiting} waiting</span> : null}
                     <span>{folderCount} folders</span>
+                    {hiddenCount > 0 ? (
+                        <span
+                            className={cn("cursor-pointer", showHidden ? "text-attention" : "text-muted")}
+                            onClick={() => model.toggleShowHidden()}
+                            title="removed sessions (H)"
+                        >
+                            {showHidden ? `showing ${hiddenCount} removed` : `${hiddenCount} removed`}
+                        </span>
+                    ) : null}
                     {!showOffline ? <span className="text-attention">offline hidden</span> : null}
                     <span className="flex-1" />
                     <span

@@ -19,10 +19,11 @@ const StoreFileName = "claude-sessions.json"
 type storeData struct {
 	Folders      []ClaudeFolder    `json:"folders"`
 	Descriptions map[string]string `json:"descriptions"`
+	Hidden       []string          `json:"hidden"`
 }
 
 func loadStore(configDir string) storeData {
-	sd := storeData{Folders: []ClaudeFolder{}, Descriptions: map[string]string{}}
+	sd := storeData{Folders: []ClaudeFolder{}, Descriptions: map[string]string{}, Hidden: []string{}}
 	data, err := os.ReadFile(filepath.Join(configDir, StoreFileName))
 	if err != nil {
 		return sd
@@ -36,6 +37,9 @@ func loadStore(configDir string) storeData {
 	}
 	if loaded.Descriptions != nil {
 		sd.Descriptions = loaded.Descriptions
+	}
+	if loaded.Hidden != nil {
+		sd.Hidden = loaded.Hidden
 	}
 	return sd
 }
@@ -151,12 +155,41 @@ func SetDescription(configDir string, sessionId string, description string) erro
 	return saveStore(configDir, sd)
 }
 
+// SetHidden removes a session from the list (or puts it back). Only the entry in Bifrost's own
+// store changes; Claude's session files are never touched.
+func SetHidden(configDir string, sessionId string, hidden bool) error {
+	if !IsSessionId(sessionId) {
+		return fmt.Errorf("not a session id: %q", sessionId)
+	}
+	storeLock.Lock()
+	defer storeLock.Unlock()
+	sd := loadStore(configDir)
+	kept := make([]string, 0, len(sd.Hidden)+1)
+	for _, id := range sd.Hidden {
+		if id != sessionId {
+			kept = append(kept, id)
+		}
+	}
+	if hidden {
+		kept = append(kept, sessionId)
+	}
+	sd.Hidden = kept
+	return saveStore(configDir, sd)
+}
+
 // List returns every session plus the user's folders and descriptions.
 func List(p *Provider, configDir string) *ClaudeListResult {
 	sd := loadStore(configDir)
 	sessions := p.Discover()
 	if sessions == nil {
 		sessions = []ClaudeSession{}
+	}
+	hidden := make(map[string]bool, len(sd.Hidden))
+	for _, id := range sd.Hidden {
+		hidden[id] = true
+	}
+	for i := range sessions {
+		sessions[i].Hidden = hidden[sessions[i].SessionId]
 	}
 	missing := []string{}
 	seen := make(map[string]bool)

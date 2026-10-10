@@ -138,6 +138,12 @@ export class RpcApiType {
         return client.wshRpcCall("claudesessionssetdescription", data, opts);
     }
 
+    // command "claudesessionssethidden" [call]
+    ClaudeSessionsSetHiddenCommand(client: WshClient, data: CommandClaudeSessionsHiddenData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionssethidden", data, opts);
+        return client.wshRpcCall("claudesessionssethidden", data, opts);
+    }
+
     // command "connconnect" [call]
     ConnConnectCommand(client: WshClient, data: ConnRequest, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "connconnect", data, opts);

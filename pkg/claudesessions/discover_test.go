@@ -390,3 +390,38 @@ func TestSetDescription(t *testing.T) {
 		t.Errorf("description too long: %d", len([]rune(d)))
 	}
 }
+
+func TestSetHidden(t *testing.T) {
+	cfg := t.TempDir()
+	if err := SetHidden(cfg, idNamed, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetHidden(cfg, idNamed, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetDescription(cfg, idLive, "kept"); err != nil {
+		t.Fatal(err)
+	}
+	res := List(fixture(t), cfg)
+	hidden := 0
+	for _, s := range res.Sessions {
+		if s.Hidden {
+			hidden++
+			if s.SessionId != idNamed {
+				t.Errorf("wrong session hidden: %s", s.SessionId)
+			}
+		}
+	}
+	if hidden != 1 || len(loadStore(cfg).Hidden) != 1 || loadStore(cfg).Descriptions[idLive] != "kept" {
+		t.Errorf("hide twice must store once and keep other data: %+v", loadStore(cfg))
+	}
+	if err := SetHidden(cfg, idNamed, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(loadStore(cfg).Hidden) != 0 {
+		t.Errorf("unhide must remove it")
+	}
+	if err := SetHidden(cfg, "../x", true); err == nil {
+		t.Errorf("non-uuid id must be refused")
+	}
+}

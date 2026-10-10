@@ -103,6 +103,7 @@ type WshRpcInterface interface {
 	ClaudeSessionsAddFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) (string, error)
 	ClaudeSessionsRemoveFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) error
 	ClaudeSessionsSetDescriptionCommand(ctx context.Context, data CommandClaudeSessionsDescriptionData) error
+	ClaudeSessionsSetHiddenCommand(ctx context.Context, data CommandClaudeSessionsHiddenData) error
 	ClaudeSessionsPromptsCommand(ctx context.Context, data CommandClaudeSessionsPromptsData) ([]claudesessions.ClaudePrompt, error)
 
 	// connection functions
@@ -860,6 +861,11 @@ type CommandClaudeSessionsPrepareData struct {
 type CommandClaudeSessionsDescriptionData struct {
 	SessionId   string `json:"sessionid"`
 	Description string `json:"description"`
+}
+
+type CommandClaudeSessionsHiddenData struct {
+	SessionId string `json:"sessionid"`
+	Hidden    bool   `json:"hidden"`
 }
 
 type CommandClaudeSessionsPromptsData struct {

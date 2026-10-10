@@ -138,6 +138,12 @@ func ClaudeSessionsSetDescriptionCommand(w *wshutil.WshRpc, data wshrpc.CommandC
 	return err
 }
 
+// command "claudesessionssethidden", wshserver.ClaudeSessionsSetHiddenCommand
+func ClaudeSessionsSetHiddenCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsHiddenData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "claudesessionssethidden", data, opts)
+	return err
+}
+
 // command "connconnect", wshserver.ConnConnectCommand
 func ConnConnectCommand(w *wshutil.WshRpc, data wshrpc.ConnRequest, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "connconnect", data, opts)

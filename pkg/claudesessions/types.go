@@ -24,6 +24,7 @@ type ClaudeSession struct {
 	Status     string `json:"status,omitempty"` // registry status of a live session: busy | idle
 	StatusTs   int64  `json:"statusts,omitempty"`
 	State      string `json:"state"`              // busy | idle | waiting | offline
+	Hidden     bool   `json:"hidden,omitempty"`   // the user removed it from the list (its files are untouched)
 	External   bool   `json:"external,omitempty"` // alive but not started in a Bifrost pane (e.g. another terminal)
 	BlockId    string `json:"blockid,omitempty"`  // the Bifrost pane running the session, when a hook tagged one
 	Version    string `json:"version,omitempty"`

@@ -9,6 +9,7 @@ import {
     foldAction,
     formatAge,
     groupKey,
+    isHidden,
     moveSelection,
     sessionKey,
     sessionState,
@@ -206,5 +207,30 @@ describe("remembered folders", () => {
         const rows = buildRows(sessions, { ...opts, missing: ["/p/two"] });
         expect(rows.find((r) => r.key === groupKey("/p/two"))).toMatchObject({ missing: true });
         expect(rows.find((r) => r.key === groupKey("/p/one"))).toMatchObject({ missing: false });
+    });
+});
+
+describe("removed sessions", () => {
+    const withHidden = [
+        ...sessions,
+        mk("h", "/p/one", 10, { hidden: true }),
+        mk("r", "/p/one", 400, { hidden: true, state: "idle", pid: 9 }),
+    ];
+
+    it("hides an offline removed session unless asked to show them", () => {
+        const keys = (showHidden: boolean) => buildRows(withHidden, { ...opts, showHidden }).map((r) => r.key);
+        expect(keys(false)).not.toContain(sessionKey("h"));
+        expect(keys(true)).toContain(sessionKey("h"));
+    });
+
+    it("always shows a removed session that is running again", () => {
+        expect(buildRows(withHidden, opts).map((r) => r.key)).toContain(sessionKey("r"));
+        expect(isHidden(withHidden[5])).toBe(false);
+        expect(isHidden(withHidden[4])).toBe(true);
+    });
+
+    it("drops a folder whose sessions are all removed", () => {
+        const rows = buildRows([mk("h", "/gone", 1, { hidden: true })], opts);
+        expect(rows).toEqual([]);
     });
 });

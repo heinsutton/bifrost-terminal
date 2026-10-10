@@ -28,6 +28,7 @@ export type BuildOpts = {
     collapsed: Set<string>;
     filter: string;
     showOffline: boolean;
+    showHidden?: boolean;
     descriptions: { [key: string]: string };
     folders?: ClaudeFolder[];
     missing?: string[];
@@ -67,6 +68,10 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
     for (const s of sessions ?? []) {
         const state = sessionState(s);
         if (state === "offline" && !opts.showOffline) {
+            continue;
+        }
+        // Removed from the list, but a session that is running again always shows.
+        if (s.hidden && state === "offline" && !opts.showHidden) {
             continue;
         }
         if (filter !== "" && !matchesFilter(s, filter, opts.descriptions)) {
@@ -208,6 +213,10 @@ export function shortenPath(cwd: string, home: string): string {
         return "~" + cwd.slice(home.length);
     }
     return cwd;
+}
+
+export function isHidden(s: ClaudeSession): boolean {
+    return !!s.hidden && sessionState(s) === "offline";
 }
 
 export function displayName(s: ClaudeSession): string {

@@ -249,6 +249,7 @@ declare global {
         status?: string;
         statusts?: number;
         state: string;
+        hidden?: boolean;
         external?: boolean;
         blockid?: string;
         version?: string;
@@ -332,6 +333,12 @@ declare global {
     type CommandClaudeSessionsFolderData = {
         path: string;
         label?: string;
+    };
+
+    // wshrpc.CommandClaudeSessionsHiddenData
+    type CommandClaudeSessionsHiddenData = {
+        sessionid: string;
+        hidden: boolean;
     };
 
     // wshrpc.CommandClaudeSessionsPrepareData

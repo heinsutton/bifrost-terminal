@@ -15,8 +15,10 @@ import {
     foldAction,
     groupKey,
     indexOfKey,
+    isHidden,
     moveSelection,
     Row,
+    sessionKey,
     sessionState,
 } from "./claudesessions-nav";
 
@@ -27,6 +29,7 @@ type ClaudeSessionsEnv = WaveEnvSubset<{
         ClaudeSessionsAddFolderCommand: WaveEnv["rpc"]["ClaudeSessionsAddFolderCommand"];
         ClaudeSessionsRemoveFolderCommand: WaveEnv["rpc"]["ClaudeSessionsRemoveFolderCommand"];
         ClaudeSessionsSetDescriptionCommand: WaveEnv["rpc"]["ClaudeSessionsSetDescriptionCommand"];
+        ClaudeSessionsSetHiddenCommand: WaveEnv["rpc"]["ClaudeSessionsSetHiddenCommand"];
         ClaudeSessionsPromptsCommand: WaveEnv["rpc"]["ClaudeSessionsPromptsCommand"];
     };
 }>;
@@ -81,6 +84,7 @@ export class ClaudeSessionsViewModel implements ViewModel {
     filterOpenAtom = jotai.atom<boolean>(false);
     showOfflineAtom = jotai.atom<boolean>(loadShowOffline());
     promptsOpenAtom = jotai.atom<boolean>(false);
+    showHiddenAtom = jotai.atom<boolean>(false);
     editAtom = jotai.atom<DescriptionEdit>(null) as jotai.PrimitiveAtom<DescriptionEdit>;
     editValueAtom = jotai.atom<string>("");
     promptsAtom = jotai.atom<{ [sessionId: string]: PromptsEntry }>({});
@@ -107,6 +111,7 @@ export class ClaudeSessionsViewModel implements ViewModel {
                 collapsed: get(this.collapsedAtom),
                 filter: get(this.filterAtom),
                 showOffline: get(this.showOfflineAtom),
+                showHidden: get(this.showHiddenAtom),
                 descriptions: get(this.dataAtom)?.descriptions ?? {},
                 folders: get(this.dataAtom)?.folders ?? [],
                 missing: get(this.dataAtom)?.missing ?? [],
@@ -278,6 +283,48 @@ export class ClaudeSessionsViewModel implements ViewModel {
         if (!this.disposed) {
             globalStore.set(this.promptsAtom, { ...globalStore.get(this.promptsAtom), [s.sessionid]: entry });
         }
+    }
+
+    toggleShowHidden() {
+        globalStore.set(this.showHiddenAtom, !globalStore.get(this.showHiddenAtom));
+    }
+
+    // "Delete" only removes the entry from this list (it can be brought back); Claude's own session
+    // files are never touched, and a running session cannot be removed.
+    async setHidden(s: ClaudeSession, hidden: boolean) {
+        if (hidden && sessionState(s) !== "offline") {
+            this.showMessage("A running session can't be removed from the list — close it first", true);
+            return;
+        }
+        if (hidden && !globalStore.get(this.showHiddenAtom)) {
+            const rows = globalStore.get(this.rowsAtom);
+            const idx = indexOfKey(rows, sessionKey(s.sessionid));
+            const neighbour = rows[idx + 1] ?? rows[idx - 1];
+            if (neighbour != null) {
+                this.select(neighbour.key);
+            }
+        }
+        try {
+            await this.env.rpc.ClaudeSessionsSetHiddenCommand(TabRpcClient, { sessionid: s.sessionid, hidden });
+            this.showMessage(
+                hidden
+                    ? "Removed from the list (files untouched) — press H to show removed sessions"
+                    : "Back in the list",
+                false
+            );
+            await this.refresh();
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
+    }
+
+    hideSelected() {
+        const row = this.selectedRow();
+        if (row?.kind !== "session") {
+            this.showMessage("Select a session to remove from the list", true);
+            return;
+        }
+        fireAndForget(() => this.setHidden(row.session, !isHidden(row.session)));
     }
 
     togglePrompts() {
@@ -487,6 +534,14 @@ export class ClaudeSessionsViewModel implements ViewModel {
         }
         if (isPlain(e, "n")) {
             this.newInSelected();
+            return true;
+        }
+        if (isPlain(e, "d") || e.key === "Delete") {
+            this.hideSelected();
+            return true;
+        }
+        if (isPlain(e, "H")) {
+            this.toggleShowHidden();
             return true;
         }
         if (isPlain(e, "e")) {

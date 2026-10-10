@@ -1519,6 +1519,10 @@ func (ws *WshServer) ClaudeSessionsSetDescriptionCommand(ctx context.Context, da
 	return claudesessions.SetDescription(wavebase.GetWaveConfigDir(), data.SessionId, data.Description)
 }
 
+func (ws *WshServer) ClaudeSessionsSetHiddenCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsHiddenData) error {
+	return claudesessions.SetHidden(wavebase.GetWaveConfigDir(), data.SessionId, data.Hidden)
+}
+
 func (ws *WshServer) ClaudeSessionsPromptsCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsPromptsData) ([]claudesessions.ClaudePrompt, error) {
 	return getClaudeSessionsProvider().RecentPrompts(data.SessionId, data.Limit)
 }
