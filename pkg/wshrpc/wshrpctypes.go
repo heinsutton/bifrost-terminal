@@ -99,6 +99,9 @@ type WshRpcInterface interface {
 	UpdateWorkspaceTabIdsCommand(ctx context.Context, workspaceId string, tabIds []string) error
 	GetAllBadgesCommand(ctx context.Context) ([]baseds.BadgeEvent, error)
 	ClaudeSessionsListCommand(ctx context.Context) (*claudesessions.ClaudeListResult, error)
+	ClaudeSessionsPrepareCommand(ctx context.Context, data CommandClaudeSessionsPrepareData) (*claudesessions.ClaudeLaunch, error)
+	ClaudeSessionsAddFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) (string, error)
+	ClaudeSessionsRemoveFolderCommand(ctx context.Context, data CommandClaudeSessionsFolderData) error
 
 	// connection functions
 	ConnStatusCommand(ctx context.Context) ([]ConnStatus, error)
@@ -844,6 +847,17 @@ type WaveFileInfo struct {
 	Size      int64    `json:"size"`
 	ModTs     int64    `json:"modts"`
 	Meta      FileMeta `json:"meta"`
+}
+
+// SessionId set: resume that session. Otherwise Cwd: start a fresh session in that folder.
+type CommandClaudeSessionsPrepareData struct {
+	SessionId string `json:"sessionid,omitempty"`
+	Cwd       string `json:"cwd,omitempty"`
+}
+
+type CommandClaudeSessionsFolderData struct {
+	Path  string `json:"path"`
+	Label string `json:"label,omitempty"`
 }
 
 type CommandBadgeWatchPidData struct {

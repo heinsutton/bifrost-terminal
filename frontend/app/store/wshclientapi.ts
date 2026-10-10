@@ -102,10 +102,28 @@ export class RpcApiType {
         return client.wshRpcCall("checkgoversion", null, opts);
     }
 
+    // command "claudesessionsaddfolder" [call]
+    ClaudeSessionsAddFolderCommand(client: WshClient, data: CommandClaudeSessionsFolderData, opts?: RpcOpts): Promise<string> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionsaddfolder", data, opts);
+        return client.wshRpcCall("claudesessionsaddfolder", data, opts);
+    }
+
     // command "claudesessionslist" [call]
     ClaudeSessionsListCommand(client: WshClient, opts?: RpcOpts): Promise<ClaudeListResult> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionslist", null, opts);
         return client.wshRpcCall("claudesessionslist", null, opts);
+    }
+
+    // command "claudesessionsprepare" [call]
+    ClaudeSessionsPrepareCommand(client: WshClient, data: CommandClaudeSessionsPrepareData, opts?: RpcOpts): Promise<ClaudeLaunch> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionsprepare", data, opts);
+        return client.wshRpcCall("claudesessionsprepare", data, opts);
+    }
+
+    // command "claudesessionsremovefolder" [call]
+    ClaudeSessionsRemoveFolderCommand(client: WshClient, data: CommandClaudeSessionsFolderData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "claudesessionsremovefolder", data, opts);
+        return client.wshRpcCall("claudesessionsremovefolder", data, opts);
     }
 
     // command "connconnect" [call]

@@ -5,8 +5,10 @@ package claudesessions
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -38,6 +40,98 @@ func loadStore(configDir string) storeData {
 	return sd
 }
 
+// storeLock serialises read-modify-write cycles; writes go through a temp file and a rename so a
+// crash or a second Bifrost window never leaves a half-written file.
+var storeLock sync.Mutex
+
+func saveStore(configDir string, sd storeData) error {
+	data, err := json.MarshalIndent(sd, "", "    ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(configDir, StoreFileName+".*.tmp")
+	if err != nil {
+		return err
+	}
+	_, werr := tmp.Write(data)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("writing %s: %w", StoreFileName, errFirst(werr, cerr))
+	}
+	if err := os.Rename(tmp.Name(), filepath.Join(configDir, StoreFileName)); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	return nil
+}
+
+func errFirst(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func isDir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
+
+// checkFolder accepts only an absolute path of an existing directory, cleaned.
+func checkFolder(path string) (string, error) {
+	if path == "" || !filepath.IsAbs(path) {
+		return "", fmt.Errorf("folder must be an absolute path: %q", path)
+	}
+	clean := filepath.Clean(path)
+	if !isDir(clean) {
+		return "", fmt.Errorf("folder not found: %s", clean)
+	}
+	return clean, nil
+}
+
+// AddFolder remembers a directory so it is listed (and can start sessions) even with no sessions.
+func AddFolder(configDir string, path string, label string) (string, error) {
+	clean, err := checkFolder(path)
+	if err != nil {
+		return "", err
+	}
+	storeLock.Lock()
+	defer storeLock.Unlock()
+	sd := loadStore(configDir)
+	for i, f := range sd.Folders {
+		if f.Path == clean {
+			sd.Folders[i].Label = label
+			return clean, saveStore(configDir, sd)
+		}
+	}
+	sd.Folders = append(sd.Folders, ClaudeFolder{Path: clean, Label: label})
+	return clean, saveStore(configDir, sd)
+}
+
+// RemoveFolder forgets a remembered directory; it never touches the directory itself.
+func RemoveFolder(configDir string, path string) error {
+	storeLock.Lock()
+	defer storeLock.Unlock()
+	sd := loadStore(configDir)
+	kept := make([]ClaudeFolder, 0, len(sd.Folders))
+	for _, f := range sd.Folders {
+		if f.Path != filepath.Clean(path) {
+			kept = append(kept, f)
+		}
+	}
+	if len(kept) == len(sd.Folders) {
+		return fmt.Errorf("folder is not remembered: %s", path)
+	}
+	sd.Folders = kept
+	return saveStore(configDir, sd)
+}
+
 // List returns every session plus the user's folders and descriptions.
 func List(p *Provider, configDir string) *ClaudeListResult {
 	sd := loadStore(configDir)
@@ -45,5 +139,22 @@ func List(p *Provider, configDir string) *ClaudeListResult {
 	if sessions == nil {
 		sessions = []ClaudeSession{}
 	}
-	return &ClaudeListResult{Sessions: sessions, Folders: sd.Folders, Descriptions: sd.Descriptions, Ts: time.Now().UnixMilli()}
+	missing := []string{}
+	seen := make(map[string]bool)
+	check := func(cwd string) {
+		if cwd == "" || seen[cwd] {
+			return
+		}
+		seen[cwd] = true
+		if !isDir(cwd) {
+			missing = append(missing, cwd)
+		}
+	}
+	for _, s := range sessions {
+		check(s.Cwd)
+	}
+	for _, f := range sd.Folders {
+		check(f.Path)
+	}
+	return &ClaudeListResult{Sessions: sessions, Folders: sd.Folders, Descriptions: sd.Descriptions, Missing: missing, Ts: time.Now().UnixMilli()}
 }

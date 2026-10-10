@@ -215,11 +215,19 @@ declare global {
         label?: string;
     };
 
+    // claudesessions.ClaudeLaunch
+    type ClaudeLaunch = {
+        cmd: string;
+        args: string[];
+        cwd: string;
+    };
+
     // claudesessions.ClaudeListResult
     type ClaudeListResult = {
         sessions: ClaudeSession[];
         folders: ClaudeFolder[];
         descriptions: {[key: string]: string};
+        missing: string[];
         ts: number;
     };
 
@@ -306,6 +314,18 @@ declare global {
         gopath: string;
         goversion: string;
         errorstring?: string;
+    };
+
+    // wshrpc.CommandClaudeSessionsFolderData
+    type CommandClaudeSessionsFolderData = {
+        path: string;
+        label?: string;
+    };
+
+    // wshrpc.CommandClaudeSessionsPrepareData
+    type CommandClaudeSessionsPrepareData = {
+        sessionid?: string;
+        cwd?: string;
     };
 
     // wshrpc.CommandConnServerInitData

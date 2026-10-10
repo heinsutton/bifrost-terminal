@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -57,12 +58,13 @@ type Provider struct {
 	claudeDir string
 	pidAlive  func(pid int) bool
 	blockOf   func(pid int) string
+	lookPath  func(file string) (string, error)
 	lock      sync.Mutex
 	cache     map[string]cacheEntry
 }
 
 func MakeProvider(claudeDir string) *Provider {
-	return &Provider{claudeDir: claudeDir, pidAlive: pidAlive, blockOf: blockOfPid, cache: make(map[string]cacheEntry)}
+	return &Provider{claudeDir: claudeDir, pidAlive: pidAlive, blockOf: blockOfPid, lookPath: exec.LookPath, cache: make(map[string]cacheEntry)}
 }
 
 func pidAlive(pid int) bool {

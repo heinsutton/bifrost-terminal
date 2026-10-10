@@ -102,10 +102,28 @@ func CheckGoVersionCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.Com
 	return resp, err
 }
 
+// command "claudesessionsaddfolder", wshserver.ClaudeSessionsAddFolderCommand
+func ClaudeSessionsAddFolderCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsFolderData, opts *wshrpc.RpcOpts) (string, error) {
+	resp, err := sendRpcRequestCallHelper[string](w, "claudesessionsaddfolder", data, opts)
+	return resp, err
+}
+
 // command "claudesessionslist", wshserver.ClaudeSessionsListCommand
 func ClaudeSessionsListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*claudesessions.ClaudeListResult, error) {
 	resp, err := sendRpcRequestCallHelper[*claudesessions.ClaudeListResult](w, "claudesessionslist", nil, opts)
 	return resp, err
+}
+
+// command "claudesessionsprepare", wshserver.ClaudeSessionsPrepareCommand
+func ClaudeSessionsPrepareCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsPrepareData, opts *wshrpc.RpcOpts) (*claudesessions.ClaudeLaunch, error) {
+	resp, err := sendRpcRequestCallHelper[*claudesessions.ClaudeLaunch](w, "claudesessionsprepare", data, opts)
+	return resp, err
+}
+
+// command "claudesessionsremovefolder", wshserver.ClaudeSessionsRemoveFolderCommand
+func ClaudeSessionsRemoveFolderCommand(w *wshutil.WshRpc, data wshrpc.CommandClaudeSessionsFolderData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "claudesessionsremovefolder", data, opts)
+	return err
 }
 
 // command "connconnect", wshserver.ConnConnectCommand

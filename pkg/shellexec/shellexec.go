@@ -637,6 +637,17 @@ func StartLocalShellProc(logCtx context.Context, termSize waveobj.TermSize, cmdS
 		blocklogger.Debugf(logCtx, "packed swaptoken %s\n", packedToken)
 		shellutil.UpdateCmdEnv(ecmd, map[string]string{wavebase.WaveSwapTokenVarName: packedToken})
 	}
+	if !isShell {
+		// A shell learns these from its init script; a plain command never runs one, so the pane
+		// it runs in is handed over directly (the Claude sessions view finds sessions by it).
+		identity := make(map[string]string)
+		for _, key := range []string{"WAVETERM_BLOCKID", "WAVETERM_TABID", "WAVETERM_WORKSPACEID"} {
+			if val := cmdOpts.SwapToken.Env[key]; val != "" {
+				identity[key] = val
+			}
+		}
+		shellutil.UpdateCmdEnv(ecmd, identity)
+	}
 	jwtToken := cmdOpts.SwapToken.Env[wavebase.WaveJwtTokenVarName]
 	if jwtToken != "" && cmdOpts.ForceJwt {
 		blocklogger.Debugf(logCtx, "adding JWT token to environment\n")

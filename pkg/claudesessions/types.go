@@ -40,5 +40,13 @@ type ClaudeListResult struct {
 	Sessions     []ClaudeSession   `json:"sessions"`
 	Folders      []ClaudeFolder    `json:"folders"`
 	Descriptions map[string]string `json:"descriptions"`
+	Missing      []string          `json:"missing"` // folders (of sessions or remembered) that no longer exist
 	Ts           int64             `json:"ts"`
+}
+
+// ClaudeLaunch is the command a new pane runs to resume a session or start a fresh one.
+type ClaudeLaunch struct {
+	Cmd  string   `json:"cmd"`
+	Args []string `json:"args"`
+	Cwd  string   `json:"cwd"`
 }

@@ -234,3 +234,104 @@ func TestBlockOfPidReadsChildEnvironment(t *testing.T) {
 		t.Errorf("a process outside Bifrost should have no block, got %q", got)
 	}
 }
+
+func TestPrepareResume(t *testing.T) {
+	p := fixture(t)
+	real := t.TempDir()
+	id := "66666666-6666-4666-8666-666666666666"
+	write(t, filepath.Join(p.claudeDir, "projects", "-r", id+".jsonl"), `{"type":"user","cwd":"`+real+`","timestamp":"2026-10-10T10:00:00.000Z"}`+"\n")
+	p.lookPath = func(string) (string, error) { return "/usr/bin/claude", nil }
+
+	got, err := p.PrepareResume(id)
+	if err != nil || got.Cmd != "/usr/bin/claude" || got.Cwd != real || len(got.Args) != 2 || got.Args[0] != "-r" || got.Args[1] != id {
+		t.Errorf("resume: %+v %v", got, err)
+	}
+	if _, err := p.PrepareResume(idLive); err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Errorf("live session must be refused, got %v", err)
+	}
+	if _, err := p.PrepareResume("../etc/passwd"); err == nil {
+		t.Errorf("non-uuid id must be refused")
+	}
+	if _, err := p.PrepareResume("77777777-7777-4777-8777-777777777777"); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Errorf("unknown session must be refused, got %v", err)
+	}
+	if _, err := p.PrepareResume(idNamed); err == nil || !strings.Contains(err.Error(), "folder not found") {
+		t.Errorf("missing folder must be refused, got %v", err)
+	}
+	p.lookPath = func(string) (string, error) { return "", os.ErrNotExist }
+	if _, err := p.PrepareResume(id); err == nil || !strings.Contains(err.Error(), "PATH") {
+		t.Errorf("missing claude binary must be reported, got %v", err)
+	}
+}
+
+func TestPrepareNew(t *testing.T) {
+	p := fixture(t)
+	p.lookPath = func(string) (string, error) { return "/usr/bin/claude", nil }
+	dir := t.TempDir()
+	got, err := p.PrepareNew(dir)
+	if err != nil || got.Cwd != dir || len(got.Args) != 0 {
+		t.Errorf("new: %+v %v", got, err)
+	}
+	for _, bad := range []string{"", "relative/dir", filepath.Join(dir, "missing")} {
+		if _, err := p.PrepareNew(bad); err == nil {
+			t.Errorf("%q must be refused", bad)
+		}
+	}
+}
+
+func TestFolderStore(t *testing.T) {
+	cfg := t.TempDir()
+	a, b := t.TempDir(), t.TempDir()
+	if _, err := AddFolder(cfg, a, "alpha"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddFolder(cfg, b, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddFolder(cfg, a+"/", "renamed"); err != nil {
+		t.Fatal(err)
+	}
+	sd := loadStore(cfg)
+	if len(sd.Folders) != 2 || sd.Folders[0].Label != "renamed" {
+		t.Errorf("add/dedupe: %+v", sd.Folders)
+	}
+	if _, err := AddFolder(cfg, filepath.Join(a, "missing"), ""); err == nil {
+		t.Errorf("missing folder must be refused")
+	}
+	if _, err := AddFolder(cfg, "rel", ""); err == nil {
+		t.Errorf("relative folder must be refused")
+	}
+	write(t, filepath.Join(cfg, StoreFileName), `{"folders":[{"path":"`+a+`"}],"descriptions":{"`+idNamed+`":"keep me"}}`)
+	if _, err := AddFolder(cfg, b, ""); err != nil {
+		t.Fatal(err)
+	}
+	if sd := loadStore(cfg); sd.Descriptions[idNamed] != "keep me" || len(sd.Folders) != 2 {
+		t.Errorf("descriptions must survive a write: %+v", sd)
+	}
+	if err := RemoveFolder(cfg, a); err != nil {
+		t.Fatal(err)
+	}
+	if err := RemoveFolder(cfg, a); err == nil {
+		t.Errorf("removing an unknown folder must fail")
+	}
+	if sd := loadStore(cfg); len(sd.Folders) != 1 || sd.Folders[0].Path != b {
+		t.Errorf("remove: %+v", sd.Folders)
+	}
+	if _, err := os.Stat(a); err != nil {
+		t.Errorf("removing a remembered folder must not delete it")
+	}
+}
+
+func TestListMissing(t *testing.T) {
+	cfg := t.TempDir()
+	res := List(fixture(t), cfg)
+	found := false
+	for _, m := range res.Missing {
+		if m == "/home/x/proj" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("missing folders not reported: %v", res.Missing)
+	}
+}

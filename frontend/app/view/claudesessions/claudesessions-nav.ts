@@ -10,6 +10,8 @@ export type GroupRow = {
     count: number;
     running: number;
     collapsed: boolean;
+    remembered: boolean; // a folder the user asked to remember
+    missing: boolean; // the folder no longer exists
 };
 
 export type SessionRow = {
@@ -27,6 +29,8 @@ export type BuildOpts = {
     filter: string;
     showOffline: boolean;
     descriptions: { [key: string]: string };
+    folders?: ClaudeFolder[];
+    missing?: string[];
 };
 
 export const UnknownFolder = "";
@@ -56,7 +60,7 @@ function matchesFilter(s: ClaudeSession, filter: string, descriptions: { [key: s
     return hay.includes(filter);
 }
 
-// Groups are ordered by their most recent session, sessions by running first, then recency.
+// Groups are ordered alphabetically by path, sessions by running first, then recency.
 export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
     const filter = opts.filter.trim().toLowerCase();
     const groups = new Map<string, SessionRow[]>();
@@ -74,6 +78,14 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
         }
         groups.get(cwd).push({ kind: "session", key: sessionKey(s.sessionid), cwd, session: s, state });
     }
+    // Remembered folders are listed even with no sessions; a filter only keeps those it matches by path.
+    const remembered = new Set((opts.folders ?? []).map((f) => f.path));
+    for (const f of opts.folders ?? []) {
+        if (!groups.has(f.path) && (filter === "" || f.path.toLowerCase().includes(filter))) {
+            groups.set(f.path, []);
+        }
+    }
+    const missingSet = new Set(opts.missing ?? []);
     const ordered = [...groups.entries()].map(([cwd, rows]) => {
         const sorted = [...rows].sort((a, b) => {
             const ra = a.state === "offline" ? 1 : 0;
@@ -83,10 +95,18 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
             }
             return b.session.lastactive - a.session.lastactive;
         });
-        const newest = Math.max(...rows.map((r) => r.session.lastactive));
-        return { cwd, rows: sorted, newest };
+        return { cwd, rows: sorted };
     });
-    ordered.sort((a, b) => b.newest - a.newest);
+    // Alphabetical by path so folders never move when sessions start, stop or get new activity; the
+    // folder with no known path goes last.
+    ordered.sort((a, b) => {
+        if ((a.cwd === UnknownFolder) !== (b.cwd === UnknownFolder)) {
+            return a.cwd === UnknownFolder ? 1 : -1;
+        }
+        const la = a.cwd.toLowerCase();
+        const lb = b.cwd.toLowerCase();
+        return la < lb ? -1 : la > lb ? 1 : a.cwd < b.cwd ? -1 : a.cwd > b.cwd ? 1 : 0;
+    });
     const out: Row[] = [];
     for (const g of ordered) {
         // A filter opens every group so matches are never hidden.
@@ -98,6 +118,8 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
             count: g.rows.length,
             running: g.rows.filter((r) => r.state !== "offline" && r.state !== "external").length,
             collapsed,
+            remembered: remembered.has(g.cwd),
+            missing: missingSet.has(g.cwd),
         });
         if (!collapsed) {
             out.push(...g.rows);

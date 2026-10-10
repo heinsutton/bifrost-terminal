@@ -1,22 +1,39 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { createBlockSplitHorizontally } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import type { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
+import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
 import { ClaudeSessionsView } from "./claudesessions";
-import { buildRows, edgeSelection, foldAction, groupKey, indexOfKey, moveSelection, Row } from "./claudesessions-nav";
+import {
+    buildRows,
+    edgeSelection,
+    foldAction,
+    groupKey,
+    indexOfKey,
+    moveSelection,
+    Row,
+    sessionState,
+} from "./claudesessions-nav";
 
 type ClaudeSessionsEnv = WaveEnvSubset<{
     rpc: {
         ClaudeSessionsListCommand: WaveEnv["rpc"]["ClaudeSessionsListCommand"];
+        ClaudeSessionsPrepareCommand: WaveEnv["rpc"]["ClaudeSessionsPrepareCommand"];
+        ClaudeSessionsAddFolderCommand: WaveEnv["rpc"]["ClaudeSessionsAddFolderCommand"];
+        ClaudeSessionsRemoveFolderCommand: WaveEnv["rpc"]["ClaudeSessionsRemoveFolderCommand"];
     };
 }>;
 
 const PollIntervalMs = 3000;
 const DefaultPageSize = 10;
+const MessageMs = 5000;
+
+export type StatusMessage = { text: string; isError: boolean };
 
 function isPlain(e: WaveKeyboardEvent, key: string): boolean {
     return e.key === key && !e.control && !e.alt && !e.cmd && !e.meta && !e.option;
@@ -39,10 +56,15 @@ export class ClaudeSessionsViewModel implements ViewModel {
     filterOpenAtom = jotai.atom<boolean>(false);
     showOfflineAtom = jotai.atom<boolean>(true);
     helpOpenAtom = jotai.atom<boolean>(false);
+    addOpenAtom = jotai.atom<boolean>(false);
+    addValueAtom = jotai.atom<string>("");
+    messageAtom = jotai.atom<StatusMessage>(null) as jotai.PrimitiveAtom<StatusMessage>;
     rowsAtom: jotai.Atom<Row[]>;
 
     containerRef = React.createRef<HTMLDivElement>();
     filterInputRef = React.createRef<HTMLInputElement>();
+    addInputRef = React.createRef<HTMLInputElement>();
+    messageTimer: ReturnType<typeof setTimeout> | null = null;
     pageSize = DefaultPageSize;
     disposed = false;
     pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -56,6 +78,8 @@ export class ClaudeSessionsViewModel implements ViewModel {
                 filter: get(this.filterAtom),
                 showOffline: get(this.showOfflineAtom),
                 descriptions: get(this.dataAtom)?.descriptions ?? {},
+                folders: get(this.dataAtom)?.folders ?? [],
+                missing: get(this.dataAtom)?.missing ?? [],
             })
         );
         this.poll();
@@ -63,6 +87,107 @@ export class ClaudeSessionsViewModel implements ViewModel {
 
     get viewComponent(): ViewComponent {
         return ClaudeSessionsView;
+    }
+
+    showMessage(text: string, isError: boolean) {
+        globalStore.set(this.messageAtom, { text, isError });
+        if (this.messageTimer != null) {
+            clearTimeout(this.messageTimer);
+        }
+        this.messageTimer = setTimeout(() => globalStore.set(this.messageAtom, null), MessageMs);
+    }
+
+    async refresh() {
+        try {
+            globalStore.set(this.dataAtom, await this.env.rpc.ClaudeSessionsListCommand(TabRpcClient));
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
+    }
+
+    // The backend re-checks everything right before launch (session not running, folder exists,
+    // claude found), so the pane only turns its answer into a split pane beside this one.
+    async launch(data: CommandClaudeSessionsPrepareData, what: string) {
+        try {
+            const launch = await this.env.rpc.ClaudeSessionsPrepareCommand(TabRpcClient, data);
+            await createBlockSplitHorizontally(
+                {
+                    meta: {
+                        view: "term",
+                        controller: "cmd",
+                        cmd: launch.cmd,
+                        "cmd:args": launch.args ?? [],
+                        "cmd:shell": false,
+                        "cmd:jwt": true,
+                        "cmd:cwd": launch.cwd,
+                        "cmd:runonstart": true,
+                        "cmd:runonce": true,
+                        "cmd:clearonstart": true,
+                    },
+                },
+                this.blockId,
+                "after"
+            );
+            this.showMessage(`${what} opened`, false);
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
+    }
+
+    resumeSession(s: ClaudeSession) {
+        const state = sessionState(s);
+        if (state === "external") {
+            this.showMessage("Already running outside Bifrost, so it can't be resumed here", true);
+        } else if (state !== "offline") {
+            this.showMessage("Already running in Bifrost", true);
+        } else {
+            fireAndForget(() => this.launch({ sessionid: s.sessionid }, "Resume"));
+        }
+    }
+
+    newSessionIn(cwd: string) {
+        if (cwd === "") {
+            this.showMessage("This session has no known folder", true);
+            return;
+        }
+        fireAndForget(() => this.launch({ cwd }, "New session"));
+    }
+
+    openAdd() {
+        globalStore.set(this.addValueAtom, "");
+        globalStore.set(this.addOpenAtom, true);
+        setTimeout(() => this.addInputRef.current?.focus(), 0);
+    }
+
+    closeAdd() {
+        globalStore.set(this.addOpenAtom, false);
+        this.giveFocus();
+    }
+
+    async submitAdd() {
+        const path = globalStore.get(this.addValueAtom).trim();
+        if (path === "") {
+            return;
+        }
+        try {
+            const stored = await this.env.rpc.ClaudeSessionsAddFolderCommand(TabRpcClient, { path });
+            this.closeAdd();
+            this.showMessage(`Remembered ${stored}`, false);
+            await this.refresh();
+            this.select(groupKey(stored));
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
+    }
+
+    async removeFolder(cwd: string) {
+        try {
+            await this.env.rpc.ClaudeSessionsRemoveFolderCommand(TabRpcClient, { path: cwd });
+            this.showMessage("Folder forgotten (nothing was deleted)", false);
+            await this.refresh();
+        } catch (e) {
+            this.showMessage(String(e), true);
+        }
     }
 
     async poll() {
@@ -86,6 +211,10 @@ export class ClaudeSessionsViewModel implements ViewModel {
     }
 
     giveFocus(): boolean {
+        if (globalStore.get(this.addOpenAtom) && this.addInputRef.current != null) {
+            this.addInputRef.current.focus();
+            return true;
+        }
         if (globalStore.get(this.filterOpenAtom) && this.filterInputRef.current != null) {
             this.filterInputRef.current.focus();
             return true;
@@ -140,12 +269,37 @@ export class ClaudeSessionsViewModel implements ViewModel {
         }
     }
 
-    activate() {
+    selectedRow(): Row {
         const rows = globalStore.get(this.rowsAtom);
-        const row = rows[indexOfKey(rows, this.currentKey())];
+        return rows[indexOfKey(rows, this.currentKey())];
+    }
+
+    activate() {
+        const row = this.selectedRow();
         if (row?.kind === "group") {
             this.toggleGroup(row.cwd);
+        } else if (row?.kind === "session") {
+            this.resumeSession(row.session);
         }
+    }
+
+    newInSelected() {
+        const row = this.selectedRow();
+        if (row != null) {
+            this.newSessionIn(row.cwd);
+        }
+    }
+
+    removeSelectedFolder() {
+        const row = this.selectedRow();
+        if (row?.kind !== "group") {
+            return;
+        }
+        if (!row.remembered) {
+            this.showMessage("Only remembered folders can be forgotten; this one comes from its sessions", true);
+            return;
+        }
+        fireAndForget(() => this.removeFolder(row.cwd));
     }
 
     openFilter() {
@@ -231,6 +385,18 @@ export class ClaudeSessionsViewModel implements ViewModel {
             this.toggleOffline();
             return true;
         }
+        if (isPlain(e, "n")) {
+            this.newInSelected();
+            return true;
+        }
+        if (isPlain(e, "a")) {
+            this.openAdd();
+            return true;
+        }
+        if (isPlain(e, "x")) {
+            this.removeSelectedFolder();
+            return true;
+        }
         if (isPlain(e, "?")) {
             this.toggleHelp();
             return true;
@@ -243,6 +409,10 @@ export class ClaudeSessionsViewModel implements ViewModel {
         if (this.pollTimer != null) {
             clearTimeout(this.pollTimer);
             this.pollTimer = null;
+        }
+        if (this.messageTimer != null) {
+            clearTimeout(this.messageTimer);
+            this.messageTimer = null;
         }
     }
 }

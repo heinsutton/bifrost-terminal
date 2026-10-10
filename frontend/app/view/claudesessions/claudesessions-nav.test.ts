@@ -28,7 +28,7 @@ const sessions: ClaudeSession[] = [
 const opts = { collapsed: new Set<string>(), filter: "", showOffline: true, descriptions: {} };
 
 describe("buildRows", () => {
-    it("groups by folder, newest group first, running sessions first", () => {
+    it("groups by folder in alphabetical order, running sessions first", () => {
         const rows = buildRows(sessions, opts);
         expect(rows.map((r) => r.key)).toEqual([
             groupKey("/p/one"),
@@ -103,6 +103,24 @@ describe("sessionState", () => {
     });
 });
 
+describe("folder order", () => {
+    it("is alphabetical and does not change when activity changes", () => {
+        const a = [mk("1", "/b", 100), mk("2", "/A", 999), mk("3", "/c", 500, { state: "busy", pid: 1 })];
+        const order = (ss: ClaudeSession[]) =>
+            buildRows(ss, opts)
+                .filter((r) => r.kind === "group")
+                .map((g) => g.cwd);
+        expect(order(a)).toEqual(["/A", "/b", "/c"]);
+        const b = [mk("1", "/b", 5000, { state: "busy" }), mk("2", "/A", 1), mk("3", "/c", 1)];
+        expect(order(b)).toEqual(["/A", "/b", "/c"]);
+    });
+
+    it("puts sessions without a folder last", () => {
+        const rows = buildRows([mk("x", undefined, 9999), mk("y", "/z", 1)], opts);
+        expect(rows.filter((r) => r.kind === "group").map((g) => g.cwd)).toEqual(["/z", ""]);
+    });
+});
+
 describe("selection", () => {
     const rows = buildRows(sessions, opts);
 
@@ -155,5 +173,38 @@ describe("formatting", () => {
     it("shows the id when a session has no name", () => {
         expect(displayName(mk("abc", "/", 1))).toBe("abc");
         expect(displayName(mk("abc", "/", 1, { name: "n" }))).toBe("n");
+    });
+});
+
+describe("remembered folders", () => {
+    const folders = [{ path: "/p/empty" }, { path: "/p/one" }];
+
+    it("lists a remembered folder with no sessions, in alphabetical order with the rest", () => {
+        const rows = buildRows(sessions, { ...opts, folders });
+        const groups = rows.filter((r) => r.kind === "group");
+        expect(groups.map((g) => g.cwd)).toEqual(["/p/empty", "/p/one", "/p/two"]);
+        expect(groups[0]).toMatchObject({ count: 0, remembered: true });
+        expect(groups[1]).toMatchObject({ remembered: true });
+        expect(groups[2]).toMatchObject({ remembered: false });
+    });
+
+    it("keeps an empty remembered folder when offline sessions are hidden", () => {
+        const rows = buildRows(sessions, { ...opts, folders, showOffline: false });
+        expect(rows.some((r) => r.key === groupKey("/p/empty"))).toBe(true);
+    });
+
+    it("only matches an empty remembered folder by path when filtering", () => {
+        expect(buildRows(sessions, { ...opts, folders, filter: "empty" }).map((r) => r.key)).toEqual([
+            groupKey("/p/empty"),
+        ]);
+        expect(
+            buildRows(sessions, { ...opts, folders, filter: "alpha" }).some((r) => r.key === groupKey("/p/empty"))
+        ).toBe(false);
+    });
+
+    it("flags missing folders", () => {
+        const rows = buildRows(sessions, { ...opts, missing: ["/p/two"] });
+        expect(rows.find((r) => r.key === groupKey("/p/two"))).toMatchObject({ missing: true });
+        expect(rows.find((r) => r.key === groupKey("/p/one"))).toMatchObject({ missing: false });
     });
 });

@@ -5,6 +5,7 @@ import { ContextMenuModel } from "@/app/store/contextmenu";
 import { getApi } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { cn } from "@/shadcn/lib/utils";
+import { fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
 import * as React from "react";
 import { ClaudeSessionsViewModel } from "./claudesessions-model";
@@ -26,11 +27,14 @@ const HelpKeys: [string, string][] = [
     ["← →  h l", "close / open folder, jump to folder"],
     ["PgUp PgDn", "move a page"],
     ["Home End  g G", "first / last"],
-    ["Enter  Space", "open / close folder"],
+    ["Enter  Space", "folder: open / close · session: resume it"],
+    ["n", "new session in the selected folder"],
+    ["a", "add (remember) a folder"],
+    ["x", "forget a remembered folder"],
     ["/", "filter (Esc clears)"],
     ["o", "show / hide offline sessions"],
     ["?", "this help"],
-    ["mouse", "click selects · click a folder to fold · right-click for actions"],
+    ["mouse", "click selects · double-click resumes · click a folder to fold · right-click for actions"],
 ];
 
 function getHome(): string {
@@ -68,19 +72,44 @@ const GroupLine = React.memo(({ row, selected, home, model }: RowProps & { row: 
                 e.preventDefault();
                 model.select(row.key);
                 const menu: ContextMenuItem[] = [
+                    {
+                        label: "New session here",
+                        enabled: row.cwd !== "" && !row.missing,
+                        click: () => model.newSessionIn(row.cwd),
+                    },
                     { label: "Copy folder", click: () => navigator.clipboard.writeText(row.cwd) },
                     {
                         label: row.collapsed ? "Open folder group" : "Close folder group",
                         click: () => model.toggleGroup(row.cwd),
+                    },
+                    { type: "separator" },
+                    { label: "Add folder…", click: () => model.openAdd() },
+                    {
+                        label: "Forget remembered folder",
+                        enabled: row.remembered,
+                        click: () => model.removeSelectedFolder(),
                     },
                 ];
                 ContextMenuModel.getInstance().showContextMenu(menu, e);
             }}
         >
             <span className="text-accent w-[1.5ch] shrink-0 text-center">{row.collapsed ? "▸" : "▾"}</span>
-            <span className={cn("shrink-0 max-w-[60%] truncate", selected ? "text-accenthover" : "text-accent")}>
+            <span
+                className={cn(
+                    "shrink-0 max-w-[60%] truncate",
+                    selected ? "text-accenthover" : "text-accent",
+                    row.missing && "text-muted line-through"
+                )}
+                title={row.missing ? "folder no longer exists" : row.cwd}
+            >
                 {shortenPath(row.cwd, home)}
             </span>
+            {row.missing ? <span className="text-attention shrink-0">missing</span> : null}
+            {row.remembered ? (
+                <span className="text-muted-foreground shrink-0" title="remembered folder">
+                    ★
+                </span>
+            ) : null}
             <span className="flex-1 overflow-hidden text-border select-none" aria-hidden="true">
                 {RuleFill}
             </span>
@@ -109,10 +138,22 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
                 model.containerRef.current?.focus({ preventScroll: true });
                 model.select(row.key);
             }}
+            onDoubleClick={() => model.resumeSession(s)}
             onContextMenu={(e) => {
                 e.preventDefault();
                 model.select(row.key);
                 const menu: ContextMenuItem[] = [
+                    {
+                        label: "Resume",
+                        enabled: row.state === "offline",
+                        click: () => model.resumeSession(s),
+                    },
+                    {
+                        label: "New session in this folder",
+                        enabled: row.cwd !== "",
+                        click: () => model.newSessionIn(row.cwd),
+                    },
+                    { type: "separator" },
                     { label: "Copy session ID", click: () => navigator.clipboard.writeText(s.sessionid) },
                     { label: "Copy folder", click: () => navigator.clipboard.writeText(row.cwd) },
                 ];
@@ -177,6 +218,9 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
         const filterOpen = jotai.useAtomValue(model.filterOpenAtom);
         const showOffline = jotai.useAtomValue(model.showOfflineAtom);
         const helpOpen = jotai.useAtomValue(model.helpOpenAtom);
+        const addOpen = jotai.useAtomValue(model.addOpenAtom);
+        const addValue = jotai.useAtomValue(model.addValueAtom);
+        const message = jotai.useAtomValue(model.messageAtom);
         const listRef = React.useRef<HTMLDivElement>(null);
         const home = React.useMemo(getHome, []);
         const [now, setNow] = React.useState(() => Date.now());
@@ -240,6 +284,13 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                     <span>{folderCount} folders</span>
                     {!showOffline ? <span className="text-attention">offline hidden</span> : null}
                     <span className="flex-1" />
+                    <span
+                        className="text-accent cursor-pointer hover:text-accenthover"
+                        onClick={() => model.openAdd()}
+                        title="Remember a folder (a)"
+                    >
+                        + folder
+                    </span>
                     <span className="text-muted">? help</span>
                 </div>
                 {filterOpen ? (
@@ -264,6 +315,33 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                                 }
                             }}
                             placeholder="filter name, id, folder, description, prompt"
+                            className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted select-text"
+                            spellCheck={false}
+                        />
+                    </div>
+                ) : null}
+                {addOpen ? (
+                    <div
+                        className="flex items-center gap-2 px-2 border-b border-border"
+                        style={{ height: RowHeight + 4 }}
+                    >
+                        <span className="text-accent">add folder</span>
+                        <input
+                            ref={model.addInputRef}
+                            value={addValue}
+                            onChange={(e) => globalStore.set(model.addValueAtom, e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    model.closeAdd();
+                                } else if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    fireAndForget(() => model.submitAdd());
+                                }
+                            }}
+                            placeholder="absolute path, ~ allowed — Enter adds, Esc cancels"
                             className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted select-text"
                             spellCheck={false}
                         />
@@ -310,8 +388,17 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                 </div>
                 <div className="border-t border-border">
                     <DetailStrip row={selectedRow} home={home} />
-                    <div className="px-2 text-muted whitespace-nowrap overflow-hidden" style={{ height: RowHeight }}>
-                        ↑↓ move · ←→ fold · / filter · o offline · ? help
+                    <div
+                        className={cn(
+                            "px-2 whitespace-nowrap overflow-hidden truncate",
+                            message == null ? "text-muted" : message.isError ? "text-error" : "text-success"
+                        )}
+                        style={{ height: RowHeight }}
+                        title={message?.text}
+                    >
+                        {message != null
+                            ? message.text
+                            : "↑↓ move · Enter resume · n new · a add folder · / filter · ? help"}
                     </div>
                 </div>
                 {helpOpen ? (

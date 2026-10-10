@@ -1489,11 +1489,38 @@ func (ws *WshServer) GetAllBadgesCommand(ctx context.Context) ([]baseds.BadgeEve
 	return wcore.GetAllBadges(), nil
 }
 
-func (ws *WshServer) ClaudeSessionsListCommand(ctx context.Context) (*claudesessions.ClaudeListResult, error) {
+func getClaudeSessionsProvider() *claudesessions.Provider {
 	claudeSessionsProviderOnce.Do(func() {
 		claudeSessionsProvider = claudesessions.MakeProvider(filepath.Join(wavebase.GetHomeDir(), ".claude"))
 	})
-	result := claudesessions.List(claudeSessionsProvider, wavebase.GetWaveConfigDir())
+	return claudeSessionsProvider
+}
+
+func (ws *WshServer) ClaudeSessionsPrepareCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsPrepareData) (*claudesessions.ClaudeLaunch, error) {
+	if data.SessionId != "" {
+		return getClaudeSessionsProvider().PrepareResume(data.SessionId)
+	}
+	cwd, err := wavebase.ExpandHomeDir(data.Cwd)
+	if err != nil {
+		return nil, err
+	}
+	return getClaudeSessionsProvider().PrepareNew(cwd)
+}
+
+func (ws *WshServer) ClaudeSessionsAddFolderCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsFolderData) (string, error) {
+	path, err := wavebase.ExpandHomeDir(strings.TrimSpace(data.Path))
+	if err != nil {
+		return "", err
+	}
+	return claudesessions.AddFolder(wavebase.GetWaveConfigDir(), path, strings.TrimSpace(data.Label))
+}
+
+func (ws *WshServer) ClaudeSessionsRemoveFolderCommand(ctx context.Context, data wshrpc.CommandClaudeSessionsFolderData) error {
+	return claudesessions.RemoveFolder(wavebase.GetWaveConfigDir(), data.Path)
+}
+
+func (ws *WshServer) ClaudeSessionsListCommand(ctx context.Context) (*claudesessions.ClaudeListResult, error) {
+	result := claudesessions.List(getClaudeSessionsProvider(), wavebase.GetWaveConfigDir())
 	blocks, err := wstore.DBGetAllObjsByType[*waveobj.Block](ctx, waveobj.OType_Block)
 	if err != nil {
 		return nil, fmt.Errorf("listing blocks: %w", err)
