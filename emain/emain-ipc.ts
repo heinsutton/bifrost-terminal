@@ -348,11 +348,9 @@ export function initIpcHandlers() {
 
     const fac = new FastAverageColor();
     electron.ipcMain.on("update-window-controls-overlay", async (event, rect: Dimensions) => {
-        if (unamePlatform === "darwin") return;
+        // Linux keeps the fixed overlay colour from window creation; sampling the page on every background change made panes lag
+        if (unamePlatform !== "win32") return;
         try {
-            const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
-            if (fullConfig?.settings?.["window:nativetitlebar"] && unamePlatform !== "win32") return;
-
             const zoomFactor = event.sender.getZoomFactor();
             const electronRect: Electron.Rectangle = {
                 x: rect.left * zoomFactor,
@@ -367,7 +365,7 @@ export function initIpcHandlers() {
             const ww = getWaveWindowByWebContentsId(event.sender.id);
             if (ww == null) return;
             ww.setTitleBarOverlay({
-                color: unamePlatform === "linux" ? color.rgba : "#00000000",
+                color: "#00000000",
                 symbolColor: color.isDark ? "white" : "black",
             });
         } catch (e) {
