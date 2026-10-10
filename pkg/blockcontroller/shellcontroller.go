@@ -887,15 +887,63 @@ func getCustomInitScriptValue(meta waveobj.MetaMapType, connName string, shellTy
 	return "", ""
 }
 
+var (
+	termSizePersistLock    sync.Mutex
+	termSizePersistPending = make(map[string]waveobj.TermSize)
+)
+
 func updateTermSize(shellProc *shellexec.ShellProc, blockId string, termSize waveobj.TermSize) {
-	err := setTermSizeInDB(blockId, termSize)
+	err := shellProc.Cmd.SetSize(termSize.Rows, termSize.Cols)
 	if err != nil {
 		log.Printf("error setting pty size: %v\n", err)
 	}
-	err = shellProc.Cmd.SetSize(termSize.Rows, termSize.Cols)
-	if err != nil {
-		log.Printf("error setting pty size: %v\n", err)
+	persistTermSize(blockId, termSize)
+}
+
+// persistTermSize keeps the DB write off the shell input loop: a burst of resizes only writes the latest size.
+func persistTermSize(blockId string, termSize waveobj.TermSize) {
+	termSizePersistLock.Lock()
+	defer termSizePersistLock.Unlock()
+	_, writerRunning := termSizePersistPending[blockId]
+	termSizePersistPending[blockId] = termSize
+	if writerRunning {
+		return
 	}
+	go func() {
+		defer func() {
+			panichandler.PanicHandler("blockcontroller:persist-termsize", recover())
+		}()
+		for {
+			size, ok := nextPendingTermSize(blockId)
+			if !ok {
+				return
+			}
+			err := setTermSizeInDB(blockId, size)
+			if err != nil {
+				log.Printf("error setting pty size: %v\n", err)
+			}
+			if finishTermSizePersist(blockId, size) {
+				return
+			}
+		}
+	}()
+}
+
+func nextPendingTermSize(blockId string) (waveobj.TermSize, bool) {
+	termSizePersistLock.Lock()
+	defer termSizePersistLock.Unlock()
+	size, ok := termSizePersistPending[blockId]
+	return size, ok
+}
+
+func finishTermSizePersist(blockId string, written waveobj.TermSize) bool {
+	termSizePersistLock.Lock()
+	defer termSizePersistLock.Unlock()
+	if termSizePersistPending[blockId] != written {
+		return false
+	}
+	delete(termSizePersistPending, blockId)
+	return true
 }
 
 func setTermSizeInDB(blockId string, termSize waveobj.TermSize) error {
