@@ -55,6 +55,7 @@ const TermCacheFileName = "cache:term:full";
 const MinDataProcessedForCache = 100 * 1024;
 export const SupportsImageInput = true;
 const MaxRepaintTransactionMs = 2000;
+const FreshShellMaxAgeMs = 5000;
 
 // detect webgl support
 function detectWebGLSupport(): boolean {
@@ -89,6 +90,7 @@ export class TermWrap {
     serializeAddon: SerializeAddon;
     mainFileSubject: SubjectWithRef<WSFileEventData>;
     loaded: boolean;
+    answerQueriesWhileLoading = false;
     heldData: Uint8Array[];
     handleResize_debounced: () => void;
     hasResized: boolean;
@@ -457,7 +459,7 @@ export class TermWrap {
     }
 
     handleTermData(data: string) {
-        if (!this.loaded) {
+        if (!this.loaded && !this.answerQueriesWhileLoading) {
             return;
         }
 
@@ -541,7 +543,14 @@ export class TermWrap {
             `terminal loaded cachefile:${cacheData?.byteLength ?? 0} main:${mainData?.byteLength ?? 0} bytes, ${Date.now() - startTs}ms`
         );
         if (mainFile != null) {
-            await this.doTerminalWrite(mainData, null);
+            // a shell started moments ago is still waiting on its startup queries (e.g. fish's device attributes
+            // request), so the terminal's replies must reach it; replies to an old history would be stale input
+            this.answerQueriesWhileLoading = Date.now() - mainFile.createdts < FreshShellMaxAgeMs;
+            try {
+                await this.doTerminalWrite(mainData, null);
+            } finally {
+                this.answerQueriesWhileLoading = false;
+            }
         }
     }
 
