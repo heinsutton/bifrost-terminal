@@ -366,6 +366,14 @@ export class TermWrap {
         }
     }
 
+    setFontSize(fontSize: number) {
+        if (this.terminal.options.fontSize === fontSize) {
+            return;
+        }
+        this.terminal.options.fontSize = fontSize;
+        this.handleResize();
+    }
+
     getTermRenderer(): "webgl" | "dom" {
         return this.webglAddon != null ? "webgl" : "dom";
     }

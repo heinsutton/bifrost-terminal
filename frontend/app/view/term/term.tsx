@@ -299,7 +299,7 @@ const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => 
             connectElemRef.current,
             {
                 theme: termTheme,
-                fontSize: termFontSize,
+                fontSize: globalStore.get(model.fontSizeAtom),
                 fontFamily: termSettings?.["term:fontfamily"] ?? connFontFamily ?? "Hack",
                 drawBoldTextInBrightColors: false,
                 fontWeight: "normal",
@@ -342,7 +342,12 @@ const TerminalView = ({ blockId, model }: ViewComponentProps<TermViewModel>) => 
             rszObs.disconnect();
             setTermWrapInst(null);
         };
-    }, [blockId, termSettings, termFontSize, connFontFamily]);
+    }, [blockId, termSettings, connFontFamily]);
+
+    // a font size change must not rebuild the terminal: that replays the whole history and recreates the WebGL context
+    React.useEffect(() => {
+        termWrapInst?.setFontSize(termFontSize);
+    }, [termWrapInst, termFontSize]);
 
     React.useEffect(() => {
         if (termModeRef.current == "vdom" && termMode == "term") {
