@@ -42,10 +42,11 @@ npm run build:prod
 
 step "Package (electron-builder, pacman only)"
 maintainer_email="$(git config user.email || true)"
-# package and executable are named bifrosterm so the install replaces the earlier bifrosterm package and
-# never collides with the waveterm-bin package, which owns /usr/bin/waveterm
+# package, executable, desktop file and icons are named bifrosterm so the install replaces the earlier bifrosterm
+# package and never collides with waveterm-bin, which owns /usr/bin/waveterm, waveterm.desktop and the waveterm icons
 npx electron-builder -c electron-builder.config.cjs -p never --linux pacman \
     -c.extraMetadata.name=bifrosterm \
+    -c.linux.executableName=bifrosterm \
     -c.extraMetadata.author.email="${maintainer_email:-heinsutton@users.noreply.github.com}"
 
 pkg="$(ls make/bifrosterm-linux-x64-*.pacman 2>/dev/null | head -n 1 || true)"
