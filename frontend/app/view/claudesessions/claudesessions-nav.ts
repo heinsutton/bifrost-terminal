@@ -28,7 +28,6 @@ export type BuildOpts = {
     collapsed: Set<string>;
     filter: string;
     showOffline: boolean;
-    showHidden?: boolean;
     harness?: string; // only this tool's sessions; empty or missing = all
     descriptions: { [key: string]: string };
     folders?: ClaudeFolder[];
@@ -74,8 +73,8 @@ export function buildRows(sessions: ClaudeSession[], opts: BuildOpts): Row[] {
         if (state === "offline" && !opts.showOffline) {
             continue;
         }
-        // Removed from the list, but a session that is running again always shows.
-        if (s.hidden && state === "offline" && !opts.showHidden) {
+        // A removed session stays gone, unless it is running again.
+        if (isHidden(s)) {
             continue;
         }
         if (filter !== "" && !matchesFilter(s, filter, opts.descriptions)) {

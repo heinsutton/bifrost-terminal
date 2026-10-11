@@ -237,8 +237,7 @@ const HelpKeys: [string, string][] = [
     ["p", "open / close the recent prompts box"],
     ["a", "add (remember) a folder"],
     ["x", "forget a remembered folder"],
-    ["d  Delete", "remove the selected offline session from the list (files untouched)"],
-    ["H", "show / hide removed sessions (d on one puts it back)"],
+    ["d  Delete", "remove the selected offline session from the list for good (files untouched)"],
     ["/", "filter (Esc clears)"],
     ["o", "show / hide offline sessions"],
     ["t", "filter by tool: all → claude → agy → all (the header chips work too)"],
@@ -335,18 +334,15 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
     const s = row.session;
     const st = StateGlyph[row.state];
     const harness = harnessStyle(s.harness);
-    const hidden = isHidden(s);
     const hasName = !!s.name;
     return (
         <div
             data-rowkey={row.key}
             className={cn(
                 "flex items-center gap-2 px-2 cursor-pointer border-l-2 whitespace-nowrap",
-                cn(selected ? SelectedRowClass : "border-transparent", harness.rowClassName),
-                hidden && "opacity-50"
+                cn(selected ? SelectedRowClass : "border-transparent", harness.rowClassName)
             )}
             style={{ height: RowHeight }}
-            title={hidden ? "removed from the list — press d to put it back" : undefined}
             onClick={() => {
                 model.containerRef.current?.focus({ preventScroll: true });
                 model.select(row.key);
@@ -368,9 +364,9 @@ const SessionLine = React.memo(({ row, selected, last, now, description, model }
                     },
                     { label: "Edit description…", click: () => model.openEdit(s) },
                     {
-                        label: hidden ? "Put back in the list" : "Remove from the list",
-                        enabled: hidden || row.state === "offline",
-                        click: () => fireAndForget(() => model.setHidden(s, !hidden)),
+                        label: "Remove from the list",
+                        enabled: row.state === "offline",
+                        click: () => fireAndForget(() => model.removeSession(s)),
                     },
                     { type: "separator" },
                     { label: "Copy session ID", click: () => navigator.clipboard.writeText(s.sessionid) },
@@ -588,10 +584,8 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
             return () => ro.disconnect();
         }, []);
 
-        const sessions = data?.sessions ?? [];
+        const sessions = (data?.sessions ?? []).filter((s) => !isHidden(s));
         const running = sessions.filter((s) => ["busy", "idle", "waiting"].includes(sessionState(s))).length;
-        const hiddenCount = sessions.filter(isHidden).length;
-        const showHidden = jotai.useAtomValue(model.showHiddenAtom);
         const external = sessions.filter((s) => sessionState(s) === "external").length;
         const waiting = sessions.filter((s) => sessionState(s) === "waiting").length;
         const folderCount = new Set(sessions.map((s) => s.cwd ?? "")).size;
@@ -624,15 +618,6 @@ export const ClaudeSessionsView: React.FC<ViewComponentProps<ClaudeSessionsViewM
                     {external > 0 ? <span className="text-warning">{external} outside</span> : null}
                     {waiting > 0 ? <span className="text-attention">{waiting} waiting</span> : null}
                     <span>{folderCount} folders</span>
-                    {hiddenCount > 0 ? (
-                        <span
-                            className={cn("cursor-pointer", showHidden ? "text-attention" : "text-muted")}
-                            onClick={() => model.toggleShowHidden()}
-                            title="removed sessions (H)"
-                        >
-                            {showHidden ? `showing ${hiddenCount} removed` : `${hiddenCount} removed`}
-                        </span>
-                    ) : null}
                     {!showOffline ? <span className="text-attention">offline hidden</span> : null}
                     <span className="flex-1" />
                     <span className="flex items-center gap-2" title="filter by tool (t)">

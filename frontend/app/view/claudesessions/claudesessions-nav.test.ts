@@ -220,10 +220,8 @@ describe("removed sessions", () => {
         mk("r", "/p/one", 400, { hidden: true, state: "idle", pid: 9 }),
     ];
 
-    it("hides an offline removed session unless asked to show them", () => {
-        const keys = (showHidden: boolean) => buildRows(withHidden, { ...opts, showHidden }).map((r) => r.key);
-        expect(keys(false)).not.toContain(sessionKey("h"));
-        expect(keys(true)).toContain(sessionKey("h"));
+    it("never lists an offline removed session", () => {
+        expect(buildRows(withHidden, opts).map((r) => r.key)).not.toContain(sessionKey("h"));
     });
 
     it("always shows a removed session that is running again", () => {
